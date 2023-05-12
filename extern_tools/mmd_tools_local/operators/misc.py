@@ -27,7 +27,7 @@ class MoveObject(Operator, utils.ItemMoveOp):
     def set_index(cls, obj, index):
         m = cls.__PREFIX_REGEXP.match(obj.name)
         name = m.group('name') if m else obj.name
-        obj.name = '%s_%s'%(utils.int2base(index, 36, 3), name)
+        obj.name = f'{utils.int2base(index, 36, 3)}_{name}'
 
     @classmethod
     def get_name(cls, obj, prefix=None):
@@ -48,7 +48,7 @@ class MoveObject(Operator, utils.ItemMoveOp):
         obj = context.active_object
         objects = self.__get_objects(obj)
         if obj not in objects:
-            self.report({ 'ERROR' }, 'Can not move object "%s"'%obj.name)
+            self.report({ 'ERROR' }, f'Can not move object "{obj.name}"')
             return { 'CANCELLED' }
 
         objects.sort(key=lambda x: x.name)
@@ -57,6 +57,7 @@ class MoveObject(Operator, utils.ItemMoveOp):
         return { 'FINISHED' }
 
     def __get_objects(self, obj):
+
         class __MovableList(list):
             def move(self, index_old, index_new):
                 item = self[index_old]
@@ -64,8 +65,7 @@ class MoveObject(Operator, utils.ItemMoveOp):
                 self.insert(index_new, item)
 
         objects = []
-        root = mmd_model.Model.findRoot(obj)
-        if root:
+        if root := mmd_model.Model.findRoot(obj):
             rig = mmd_model.Model(root)
             if obj.mmd_type == 'NONE' and obj.type == 'MESH':
                 objects = rig.meshes()
@@ -90,10 +90,10 @@ class CleanShapeKeys(Operator):
     def __can_remove(key_block):
         if key_block.relative_key == key_block:
             return False # Basis
-        for v0, v1 in zip(key_block.relative_key.data, key_block.data):
-            if v0.co != v1.co:
-                return False
-        return True
+        return all(
+            v0.co == v1.co
+            for v0, v1 in zip(key_block.relative_key.data, key_block.data)
+        )
 
     def __shape_key_clean(self, obj, key_blocks):
         for kb in key_blocks:
@@ -230,9 +230,7 @@ class AttachMeshesToMMD(Operator):
             return { 'CANCELLED' }
 
         def __get_root(mesh):
-            if mesh.parent is None:
-                return mesh
-            return __get_root(mesh.parent)
+            return mesh if mesh.parent is None else __get_root(mesh.parent)
 
         meshes_list = (o for o in context.visible_objects if o.type == 'MESH' and o.mmd_type == 'NONE')
         for mesh in meshes_list:
@@ -278,12 +276,13 @@ class ChangeMMDIKLoopFactor(Operator):
 
         if '_RNA_UI' not in arm:
             arm['_RNA_UI'] = {}
-        prop = {}
-        prop['min'] = 1
-        prop['soft_min'] = 1
-        prop['soft_max'] = 10
-        prop['max'] = 100
-        prop['description'] = 'Scaling factor of MMD IK loop'
+        prop = {
+            'min': 1,
+            'soft_min': 1,
+            'soft_max': 10,
+            'max': 100,
+            'description': 'Scaling factor of MMD IK loop',
+        }
         arm['_RNA_UI']['mmd_ik_loop_factor'] = prop
 
         old_factor = max(arm.get('mmd_ik_loop_factor', 1), 1)

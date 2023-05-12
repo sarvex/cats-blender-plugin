@@ -98,6 +98,4 @@ class VPDImporter:
                 self.__assignToArmature(obj)
         elif obj.type == 'MESH':
             self.__assignToMesh(obj)
-        else:
-            pass
 

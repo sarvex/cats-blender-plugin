@@ -86,7 +86,7 @@ class PMXImporter:
         txt = bpy.data.texts.new(obj_name)
         txt.from_string(pmxModel.comment.replace('\r', ''))
         mmd_root.comment_text = txt.name
-        txt = bpy.data.texts.new(obj_name+'_e')
+        txt = bpy.data.texts.new(f'{obj_name}_e')
         txt.from_string(pmxModel.comment_e.replace('\r', ''))
         mmd_root.comment_e_text = txt.name
 
@@ -96,7 +96,10 @@ class PMXImporter:
 
     def __createMeshObject(self):
         model_name = self.__root.name
-        self.__meshObj = bpy.data.objects.new(name=model_name+'_mesh', object_data=bpy.data.meshes.new(name=model_name))
+        self.__meshObj = bpy.data.objects.new(
+            name=f'{model_name}_mesh',
+            object_data=bpy.data.meshes.new(name=model_name),
+        )
         self.__meshObj.parent = self.__armObj
         self.__targetScene.link_object(self.__meshObj)
 
@@ -118,8 +121,7 @@ class PMXImporter:
         pmxModel = self.__model
         pmx_vertices = pmxModel.vertices
         vertex_count = len(pmx_vertices)
-        vertex_map = self.__vertex_map
-        if vertex_map:
+        if vertex_map := self.__vertex_map:
             indices = collections.OrderedDict(vertex_map).keys()
             pmx_vertices = tuple(pmxModel.vertices[x] for x in indices)
             vertex_count = len(indices)
@@ -182,8 +184,9 @@ class PMXImporter:
         pmxModel = self.__model
 
         self.__textureTable = []
-        for i in pmxModel.textures:
-            self.__textureTable.append(bpy.path.resolve_ncase(path=i.path))
+        self.__textureTable.extend(
+            bpy.path.resolve_ncase(path=i.path) for i in pmxModel.textures
+        )
 
     def __createEditBones(self, obj, pmx_bones):
         """ create EditBones from pmx file data.
@@ -257,7 +260,7 @@ class PMXImporter:
                             b_bone.tail = b_bone.head + Vector((0, 0, 1)) * self.__scale
                     else:
                         b_bone.tail = b_bone.head + Vector((0, 0, 1)) * self.__scale
-                    if m_bone.displayConnection != -1 and m_bone.displayConnection != [0.0, 0.0, 0.0]:
+                    if m_bone.displayConnection not in [-1, [0.0, 0.0, 0.0]]:
                         logging.debug(' * special tip bone %s, display %s', b_bone.name, str(m_bone.displayConnection))
                         specialTipBones.append(b_bone.name)
 
@@ -284,10 +287,7 @@ class PMXImporter:
         return nameTable, specialTipBones
 
     def __sortPoseBonesByBoneIndex(self, pose_bones, bone_names):
-        r = []
-        for i in bone_names:
-            r.append(pose_bones[i])
-        return r
+        return [pose_bones[i] for i in bone_names]
 
     @staticmethod
     def convertIKLimitAngles(min_angle, max_angle, bone_matrix, invert=False):
@@ -427,7 +427,7 @@ class PMXImporter:
             mmd_bone.transform_order = pmx_bone.transform_order
             mmd_bone.transform_after_dynamics = pmx_bone.transAfterPhis
 
-            if pmx_bone.displayConnection == -1 or pmx_bone.displayConnection == (0.0, 0.0, 0.0):
+            if pmx_bone.displayConnection in [-1, (0.0, 0.0, 0.0)]:
                 mmd_bone.is_tip = True
             elif b_bone.name in specialTipBones:
                 mmd_bone.is_tip = True
@@ -440,9 +440,8 @@ class PMXImporter:
             if not pmx_bone.isMovable:
                 b_bone.lock_location = [True, True, True]
 
-            if pmx_bone.isIK:
-                if 0 <= pmx_bone.target < len(pose_bones):
-                    self.__applyIk(i, pmx_bone, pose_bones)
+            if pmx_bone.isIK and 0 <= pmx_bone.target < len(pose_bones):
+                self.__applyIk(i, pmx_bone, pose_bones)
 
             if pmx_bone.hasAdditionalRotate or pmx_bone.hasAdditionalLocation:
                 bone_index, influ = pmx_bone.additionalTransform
@@ -540,7 +539,7 @@ class PMXImporter:
             mmd_mat.name_j = i.name
             mmd_mat.name_e = i.name_e
             mmd_mat.ambient_color = i.ambient
-            mmd_mat.diffuse_color = i.diffuse[0:3]
+            mmd_mat.diffuse_color = i.diffuse[:3]
             mmd_mat.alpha = i.diffuse[3]
             mmd_mat.specular_color = i.specular
             mmd_mat.shininess = i.shininess
@@ -613,14 +612,16 @@ class PMXImporter:
             zw_data_map = collections.OrderedDict()
             split_uvzw = lambda uvi: (self.flipUV_V(uvi[:2]), uvi[2:])
             for i in range(pmxModel.header.additional_uvs):
-                add_uv = uv_layers[uv_textures.new(name='UV'+str(i+1)).name]
+                add_uv = uv_layers[uv_textures.new(name=f'UV{str(i + 1)}').name]
                 logging.info(' - %s...(uv channels)', add_uv.name)
                 uv_table = {vi:split_uvzw(v.additional_uvs[i]) for vi, v in enumerate(pmxModel.vertices)}
                 add_uv.data.foreach_set('uv', tuple(v for i in loop_indices_orig for v in uv_table[i][0]))
                 if not any(any(s[1]) for s in uv_table.values()):
                     logging.info('\t- zw are all zeros: %s', add_uv.name)
                 else:
-                    zw_data_map['_'+add_uv.name] = {k:self.flipUV_V(v[1]) for k, v in uv_table.items()}
+                    zw_data_map[f'_{add_uv.name}'] = {
+                        k: self.flipUV_V(v[1]) for k, v in uv_table.items()
+                    }
             for name, zw_table in zw_data_map.items():
                 logging.info(' - %s...(zw channels of %s)', name, name[1:])
                 add_zw = uv_textures.new(name=name)
@@ -810,10 +811,7 @@ class PMXImporter:
             used_names.add(m.name)
 
     def execute(self, **args):
-        if 'pmx' in args:
-            self.__model = args['pmx']
-        else:
-            self.__model = pmx.load(args['filepath'])
+        self.__model = args['pmx'] if 'pmx' in args else pmx.load(args['filepath'])
         self.__fixRepeatedMorphName()
 
         types = args.get('types', set())
@@ -996,7 +994,7 @@ class _PMXCleaner:
         for mat in pmx_materials:
             used_faces = set()
             new_vertex_count = 0
-            for i in range(int(mat.vertex_count/3)):
+            for _ in range(int(mat.vertex_count/3)):
                 f = next(face_iter)
 
                 f_key = face_key_func(f)
@@ -1022,7 +1020,6 @@ class _PMXCleaner:
                 continue
             old_len = len(m.offsets)
             m.offsets = [x for x in m.offsets if index_update_func(x)]
-            counts = old_len - len(m.offsets)
-            if counts:
+            if counts := old_len - len(m.offsets):
                 logging.warning('   - removed %d (of %d) offsets of "%s"', counts, old_len, m.name)
 

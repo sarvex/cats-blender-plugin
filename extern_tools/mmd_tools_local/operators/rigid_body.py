@@ -191,16 +191,6 @@ class AddRigidBody(Operator):
             rot.rotate_axis('X', math.pi/2)
 
             size *= target_bone.length
-            if 1:
-                pass # bypass resizing
-            elif self.rigid_shape == 'SPHERE':
-                size.x *= 0.8
-            elif self.rigid_shape == 'BOX':
-                size.x /= 3
-                size.y /= 3
-                size.z *= 0.8
-            elif self.rigid_shape == 'CAPSULE':
-                size.x /= 3
         else:
             size *= rig.rootObject().empty_draw_size
 
@@ -395,11 +385,11 @@ class AddJoint(Operator):
         rig = mmd_model.Model(root)
 
         arm = rig.armature()
-        bone_map = {}
-        for i in context.selected_objects:
-            if mmd_model.isRigidBodyObject(i):
-                bone_map[i] = arm.data.bones.get(i.mmd_rigid.bone, None)
-
+        bone_map = {
+            i: arm.data.bones.get(i.mmd_rigid.bone, None)
+            for i in context.selected_objects
+            if mmd_model.isRigidBodyObject(i)
+        }
         if len(bone_map) < 2:
             self.report({ 'ERROR' }, "Please select two or more mmd rigid objects")
             return { 'CANCELLED' }

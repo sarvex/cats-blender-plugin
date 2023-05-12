@@ -146,23 +146,19 @@ class __PmxExporter:
                             pv.additional_uvs.append(self.flipUV_V(_uvzw[0])+self.flipUV_V(_uvzw[1]))
 
                     t = len(v.groups)
+                    weight = pmx.BoneWeight()
                     if t == 0:
-                        weight = pmx.BoneWeight()
                         weight.type = pmx.BoneWeight.BDEF1
                         weight.bones = [0]
-                        pv.weight = weight
                     elif t == 1:
-                        weight = pmx.BoneWeight()
                         weight.type = pmx.BoneWeight.BDEF1
                         weight.bones = [v.groups[0][0]]
-                        pv.weight = weight
                     elif t == 2:
                         vg1, vg2 = v.groups
-                        weight = pmx.BoneWeight()
-                        weight.type = pmx.BoneWeight.BDEF2
                         weight.bones = [vg1[0], vg2[0]]
                         w1, w2 = vg1[1], vg2[1]
                         weight.weights = [w1/(w1+w2)]
+                        weight.type = pmx.BoneWeight.BDEF2
                         if v.sdef_data:
                             weight.type = pmx.BoneWeight.SDEF
                             sdef_weights = pmx.BoneWeightSDEF()
@@ -172,9 +168,7 @@ class __PmxExporter:
                                 weight.bones.reverse()
                                 sdef_weights.weight = 1.0 - sdef_weights.weight
                             weight.weights = sdef_weights
-                        pv.weight = weight
                     else:
-                        weight = pmx.BoneWeight()
                         weight.type = pmx.BoneWeight.BDEF4
                         weight.bones = [0, 0, 0, 0]
                         weight.weights = [0.0, 0.0, 0.0, 0.0]
@@ -188,7 +182,7 @@ class __PmxExporter:
                             w_all += w
                         for i in range(4):
                             weight.weights[i] /= w_all
-                        pv.weight = weight
+                    pv.weight = weight
                     self.__model.vertices.append(pv)
                     self.__exported_vertices.append(v)
 
@@ -307,10 +301,7 @@ class __PmxExporter:
 
     @classmethod
     def __countBoneDepth(cls, bone):
-        if bone.parent is None:
-            return 0
-        else:
-            return cls.__countBoneDepth(bone.parent) + 1
+        return 0 if bone.parent is None else cls.__countBoneDepth(bone.parent) + 1
 
     def __exportBones(self, meshes):
         """ Export bones.
@@ -412,7 +403,7 @@ class __PmxExporter:
                     i.displayConnection = pmx_bones.index(boneMap[i.displayConnection])
                 i.additionalTransform[0] = r.get(i.additionalTransform[0], -1)
 
-            if len(pmx_bones) == 0:
+            if not pmx_bones:
                 # avoid crashing MMD
                 pmx_bone = pmx.Bone()
                 pmx_bone.name = u'全ての親'

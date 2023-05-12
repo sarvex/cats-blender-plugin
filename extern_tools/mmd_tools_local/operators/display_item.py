@@ -67,9 +67,7 @@ class MoveDisplayItemFrame(Operator, ItemMoveOp):
         index = mmd_root.active_display_item_frame
         frames = mmd_root.display_item_frames
         frame = ItemOp.get_by_index(frames, index)
-        if frame and frame.is_special:
-            pass
-        else:
+        if not frame or not frame.is_special:
             mmd_root.active_display_item_frame = self.move(frames, index, self.type, index_min=2)
         return {'FINISHED'}
 

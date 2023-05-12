@@ -186,7 +186,7 @@ class MMDTranslator:
 
     @staticmethod
     def default_csv_filepath():
-        return __file__[:-3]+'.csv'
+        return f'{__file__[:-3]}.csv'
 
     @staticmethod
     def get_csv_text(text_name=None):
@@ -242,11 +242,10 @@ class MMDTranslator:
         return name_new
 
     def save_fails(self, text_name=None):
-        text_name = text_name or (__name__+'.fails')
+        text_name = text_name or f'{__name__}.fails'
         txt = self.get_csv_text(text_name)
-        fmt = '"%s","%s"'
         items = sorted(self.__fails.items(), key=lambda row: (-len(row[0]), row))
-        txt.from_string('\n'.join(fmt%(k, v) for k, v in items))
+        txt.from_string('\n'.join(f'"{k}","{v}"' for k, v in items))
         return txt
 
     def load_from_stream(self, csvfile=None):
@@ -296,11 +295,27 @@ class DictionaryEnum:
         if 'import' in prop.bl_rna.identifier:
             items.append(('DISABLED', 'Disabled', '', 0))
 
-        items.append(('INTERNAL', 'Internal Dictionary', 'The dictionary defined in '+__name__, len(items)))
+        items.append(
+            (
+                'INTERNAL',
+                'Internal Dictionary',
+                f'The dictionary defined in {__name__}',
+                len(items),
+            )
+        )
 
-        for txt_name in sorted(x.name for x in bpy.data.texts if x.name.lower().endswith('.csv')):
-            items.append((txt_name, txt_name, "bpy.data.texts['%s']"%txt_name, 'TEXT', len(items)))
-
+        items.extend(
+            (
+                txt_name,
+                txt_name,
+                f"bpy.data.texts['{txt_name}']",
+                'TEXT',
+                len(items),
+            )
+            for txt_name in sorted(
+                x.name for x in bpy.data.texts if x.name.lower().endswith('.csv')
+            )
+        )
         import os
         from mmd_tools_local.bpyutils import addon_preferences
         folder = addon_preferences('dictionary_folder', '')

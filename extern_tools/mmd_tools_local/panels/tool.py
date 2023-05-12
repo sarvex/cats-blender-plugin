@@ -56,8 +56,7 @@ class MMDToolsObjectPanel(_PanelBase, Panel):
         col.operator('mmd_tools.convert_materials_for_cycles', text='Convert Materials For Cycles')
         col.operator('mmd_tools.separate_by_materials', text='Separate By Materials')
 
-        root = mmd_model.Model.findRoot(active_obj)
-        if root:
+        if root := mmd_model.Model.findRoot(active_obj):
             col.operator('mmd_tools.join_meshes')
             col.operator('mmd_tools.attach_meshes')
             col.operator('mmd_tools.translate_mmd_model', text='Translation')
@@ -150,8 +149,7 @@ class MMD_ROOT_UL_display_items(UIList):
         if armature is None:
             return
         row = layout.row(align=True)
-        p_bone = armature.pose.bones.get(bone_name, None)
-        if p_bone:
+        if p_bone := armature.pose.bones.get(bone_name, None):
             bone = p_bone.bone
             if mmd_name:
                 row.prop(p_bone.mmd_bone, mmd_name, text='', emboss=True)
@@ -420,13 +418,12 @@ class MMDMorphToolsPanel(_PanelBase, Panel):
         tb1.operator('mmd_tools.morph_move', text='', icon='TRIA_UP').type = 'UP'
         tb1.operator('mmd_tools.morph_move', text='', icon='TRIA_DOWN').type = 'DOWN'
 
-        morph = ItemOp.get_by_index(getattr(mmd_root, morph_type), mmd_root.active_morph)
-        if morph:
-            slider = rig.morph_slider.get(morph.name)
-            if slider:
+        if morph := ItemOp.get_by_index(
+            getattr(mmd_root, morph_type), mmd_root.active_morph
+        ):
+            if slider := rig.morph_slider.get(morph.name):
                 col.row().prop(slider, 'value')
-            draw_func = getattr(self, '_draw_%s_data'%morph_type[:-7], None)
-            if draw_func:
+            if draw_func := getattr(self, f'_draw_{morph_type[:-7]}_data', None):
                 draw_func(context, rig, col, morph)
 
     def _template_morph_offset_list(self, layout, morph, list_type_name):
@@ -451,8 +448,7 @@ class MMDMorphToolsPanel(_PanelBase, Panel):
             shape_keys = i.data.shape_keys
             if shape_keys is None:
                 continue
-            kb = shape_keys.key_blocks.get(morph.name, None)
-            if kb:
+            if kb := shape_keys.key_blocks.get(morph.name, None):
                 found = row = col.row(align=True)
                 row.active = not (i.show_only_shape_key or kb.mute)
                 row.label(text=i.name, icon='OBJECT_DATA')
@@ -477,9 +473,34 @@ class MMDMorphToolsPanel(_PanelBase, Panel):
             col.label(text='This is not a valid base material', icon='ERROR')
             return
 
-        work_mat = bpy.data.materials.get(base_mat_name + '_temp', None)
-        use_work_mat = work_mat and related_mesh and work_mat.name in related_mesh.materials
-        if not use_work_mat:
+        work_mat = bpy.data.materials.get(f'{base_mat_name}_temp', None)
+        if (
+            use_work_mat := work_mat
+            and related_mesh
+            and work_mat.name in related_mesh.materials
+        ):
+            c_mat.enabled = False
+            c = col.column()
+            row = c.row(align=True)
+            row.operator(operators.morph.ApplyMaterialOffset.bl_idname, text='Apply')
+            row.operator(operators.morph.ClearTempMaterials.bl_idname, text='Clear')
+
+            row = c.row()
+            row.prop(data, 'offset_type')
+            row = c.row()
+            row.prop(work_mat.mmd_material, 'diffuse_color')
+            row.prop(work_mat.mmd_material, 'alpha', slider=True)
+            row = c.row()
+            row.prop(work_mat.mmd_material, 'specular_color')
+            row.prop(work_mat.mmd_material, 'shininess', slider=True)
+            row = c.row()
+            row.prop(work_mat.mmd_material, 'ambient_color')
+            row.label() # for alignment only
+            row = c.row()
+            row.prop(work_mat.mmd_material, 'edge_color')
+            row.prop(work_mat.mmd_material, 'edge_weight', slider=True)
+            row = c.row()
+        else:
             c = col.column()
             row = c.row(align=True)
             if base_mat_name == '':
@@ -504,34 +525,9 @@ class MMDMorphToolsPanel(_PanelBase, Panel):
             row = c.row()
             row.prop(data, 'edge_weight', slider=True)
             row = c.row()
-            row.column(align=True).prop(data, 'texture_factor', expand=True, slider=True)
-            row.column(align=True).prop(data, 'sphere_texture_factor', expand=True, slider=True)
-            row.column(align=True).prop(data, 'toon_texture_factor', expand=True, slider=True)
-        else:
-            c_mat.enabled = False
-            c = col.column()
-            row = c.row(align=True)
-            row.operator(operators.morph.ApplyMaterialOffset.bl_idname, text='Apply')
-            row.operator(operators.morph.ClearTempMaterials.bl_idname, text='Clear')
-
-            row = c.row()
-            row.prop(data, 'offset_type')
-            row = c.row()
-            row.prop(work_mat.mmd_material, 'diffuse_color')
-            row.prop(work_mat.mmd_material, 'alpha', slider=True)
-            row = c.row()
-            row.prop(work_mat.mmd_material, 'specular_color')
-            row.prop(work_mat.mmd_material, 'shininess', slider=True)
-            row = c.row()
-            row.prop(work_mat.mmd_material, 'ambient_color')
-            row.label() # for alignment only
-            row = c.row()
-            row.prop(work_mat.mmd_material, 'edge_color')
-            row.prop(work_mat.mmd_material, 'edge_weight', slider=True)
-            row = c.row()
-            row.column(align=True).prop(data, 'texture_factor', expand=True, slider=True)
-            row.column(align=True).prop(data, 'sphere_texture_factor', expand=True, slider=True)
-            row.column(align=True).prop(data, 'toon_texture_factor', expand=True, slider=True)
+        row.column(align=True).prop(data, 'texture_factor', expand=True, slider=True)
+        row.column(align=True).prop(data, 'sphere_texture_factor', expand=True, slider=True)
+        row.column(align=True).prop(data, 'toon_texture_factor', expand=True, slider=True)
 
     def _draw_bone_data(self, context, rig, col, morph):
         armature = rig.armature()

@@ -24,10 +24,14 @@ class _FnMaterialBI:
 
     @classmethod
     def from_material_id(cls, material_id):
-        for material in bpy.data.materials:
-            if material.mmd_material.material_id == material_id:
-                return cls(material)
-        return None
+        return next(
+            (
+                cls(material)
+                for material in bpy.data.materials
+                if material.mmd_material.material_id == material_id
+            ),
+            None,
+        )
 
     @classmethod
     def clean_materials(cls, obj, can_remove):
@@ -58,17 +62,16 @@ class _FnMaterialBI:
             raise MaterialNotFoundError()
         mat1_idx = meshObj.data.materials.find(mat1.name)
         mat2_idx = meshObj.data.materials.find(mat2.name)
-        if 1: #with select_object(meshObj):
-            # Swap polygons
-            for poly in meshObj.data.polygons:
-                if poly.material_index == mat1_idx:
-                    poly.material_index = mat2_idx
-                elif reverse and poly.material_index == mat2_idx:
-                    poly.material_index = mat1_idx
-            # Swap slots if specified
-            if swap_slots:
-                meshObj.material_slots[mat1_idx].material = mat2
-                meshObj.material_slots[mat2_idx].material = mat1
+        # Swap polygons
+        for poly in meshObj.data.polygons:
+            if poly.material_index == mat1_idx:
+                poly.material_index = mat2_idx
+            elif reverse and poly.material_index == mat2_idx:
+                poly.material_index = mat1_idx
+        # Swap slots if specified
+        if swap_slots:
+            meshObj.material_slots[mat1_idx].material = mat2
+            meshObj.material_slots[mat2_idx].material = mat1
         return mat1, mat2
 
     @classmethod
@@ -146,8 +149,7 @@ class _FnMaterialBI:
         return texture_slot.texture if texture_slot else None
 
     def __use_texture(self, index, use_tex):
-        texture_slot = self.__material.texture_slots[index]
-        if texture_slot:
+        if texture_slot := self.__material.texture_slots[index]:
             texture_slot.use = use_tex
 
     def create_texture(self, filepath):
@@ -171,8 +173,7 @@ class _FnMaterialBI:
         self.__remove_texture(self.__BASE_TEX_SLOT)
 
     def __remove_texture(self, index):
-        texture_slot = self.__material.texture_slots[index]
-        if texture_slot:
+        if texture_slot := self.__material.texture_slots[index]:
             tex = texture_slot.texture
             self.__material.texture_slots.clear(index)
             #print('clear texture: %s  users: %d'%(tex.name, tex.users))
@@ -219,9 +220,7 @@ class _FnMaterialBI:
             return
 
         sphere_texture_type = int(self.__material.mmd_material.sphere_texture_type)
-        if sphere_texture_type not in (1, 2, 3):
-            texture_slot.use = False
-        else:
+        if sphere_texture_type in {1, 2, 3}:
             texture_slot.use = True
             texture_slot.blend_type = ('MULTIPLY', 'ADD', 'MULTIPLY')[sphere_texture_type-1]
             if sphere_texture_type == 3:
@@ -233,6 +232,8 @@ class _FnMaterialBI:
             else:
                 texture_slot.texture_coords = 'NORMAL'
 
+        else:
+            texture_slot.use = False
         if not texture_slot.use or not self.__has_alpha_channel(texture_slot.texture):
             self.__remove_texture(self.__SPHERE_ALPHA_SLOT)
             return
@@ -364,8 +365,7 @@ class _FnMaterialBI:
         if hasattr(mat, 'line_color'): # freestyle line color
             mat.line_color = line_color
 
-        mat_edge = bpy.data.materials.get('mmd_edge.'+mat.name, None)
-        if mat_edge:
+        if mat_edge := bpy.data.materials.get(f'mmd_edge.{mat.name}', None):
             mat_edge.mmd_material.edge_color = line_color
 
         if mat.name.startswith('mmd_edge.') and mat.node_tree:
@@ -440,12 +440,12 @@ class _FnMaterialCycles(_FnMaterialBI):
 
     def update_sphere_texture_type(self, obj=None):
         sphere_texture_type = int(self.material.mmd_material.sphere_texture_type)
-        is_sph_add = (sphere_texture_type == 2)
-
         if sphere_texture_type not in (1, 2, 3):
             self.__update_shader_input('Sphere Tex Fac', 0)
         else:
             self.__update_shader_input('Sphere Tex Fac', 1)
+            is_sph_add = (sphere_texture_type == 2)
+
             self.__update_shader_input('Sphere Mul/Add', is_sph_add)
             self.__update_shader_input('Sphere Tex', (0, 0, 0, 1) if is_sph_add else (1, 1, 1, 1))
 
@@ -464,7 +464,9 @@ class _FnMaterialCycles(_FnMaterialBI):
                         next(uv_layers, None) # skip base UV
                         subtex_uv = getattr(next(uv_layers, None), 'name', '')
                         if subtex_uv != 'UV1':
-                            print(' * material(%s): object "%s" use UV "%s" for SubTex'%(mat.name, obj.name, subtex_uv))
+                            print(
+                                f' * material({mat.name}): object "{obj.name}" use UV "{subtex_uv}" for SubTex'
+                            )
                     links.new(nodes['mmd_tex_uv'].outputs['SubTex UV'], texture.inputs['Vector'])
                 else:
                     links.new(nodes['mmd_tex_uv'].outputs['Sphere UV'], texture.inputs['Vector'])
@@ -587,8 +589,14 @@ class _FnMaterialCycles(_FnMaterialBI):
         m, mmd_material = material, material.mmd_material
 
         if m.use_nodes and next((n for n in m.node_tree.nodes if n.name.startswith('mmd_')), None) is None:
-            tex_node = next((n for n in m.node_tree.nodes if n.bl_idname == 'ShaderNodeTexImage'), None)
-            if tex_node:
+            if tex_node := next(
+                (
+                    n
+                    for n in m.node_tree.nodes
+                    if n.bl_idname == 'ShaderNodeTexImage'
+                ),
+                None,
+            ):
                 tex_node.name = 'mmd_base_tex'
 
         shadow_method = getattr(m, 'shadow_method', None)
@@ -668,8 +676,7 @@ class _FnMaterialCycles(_FnMaterialBI):
             links.new(node_shader.outputs['Shader'], node_output.inputs['Surface'])
 
         for name_id in ('Base', 'Toon', 'Sphere'):
-            texture = self.__get_texture_node('mmd_%s_tex'%name_id.lower())
-            if texture:
+            if texture := self.__get_texture_node(f'mmd_{name_id.lower()}_tex'):
                 name_tex_in, name_alpha_in, name_uv_out = (name_id+x for x in (' Tex', ' Alpha', ' UV'))
                 if not node_shader.inputs.get(name_tex_in, _Dummy).is_linked:
                     links.new(texture.outputs['Color'], node_shader.inputs[name_tex_in])

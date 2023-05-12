@@ -51,9 +51,13 @@ class MMDModelObjectDisplayPanel(_PanelBase, Panel):
 
     def __draw_IK_toggle(self, armature):
         bones = getattr(armature.pose, 'bones', ())
-        ik_map = {bones[c.subtarget]:(b.bone, c.chain_count, not c.is_valid) for b in bones for c in b.constraints if c.type == 'IK' and c.subtarget in bones}
-        if ik_map:
-            base = sum(b.bone.length for b in ik_map.keys())/len(ik_map)*0.8
+        if ik_map := {
+            bones[c.subtarget]: (b.bone, c.chain_count, not c.is_valid)
+            for b in bones
+            for c in b.constraints
+            if c.type == 'IK' and c.subtarget in bones
+        }:
+            base = sum(b.bone.length for b in ik_map) / len(ik_map) * 0.8
             groups = {}
             for ik, (b, cnt, err) in ik_map.items():
                 if any(all(x) for x in zip(ik.bone.layers, armature.data.layers)):

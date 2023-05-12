@@ -11,16 +11,14 @@ from mmd_tools_local.bpyutils import TransformConstraintOp
 
 
 def remove_constraint(constraints, name):
-    c = constraints.get(name, None)
-    if c:
+    if c := constraints.get(name, None):
         constraints.remove(c)
         return True
     return False
 
 def remove_edit_bones(edit_bones, bone_names):
     for name in bone_names:
-        b = edit_bones.get(name, None)
-        if b:
+        if b := edit_bones.get(name, None):
             edit_bones.remove(b)
 
 
@@ -36,10 +34,14 @@ class FnBone(object):
 
     @classmethod
     def from_bone_id(cls, armature, bone_id):
-        for bone in armature.pose.bones:
-            if bone.mmd_bone.bone_id == bone_id:
-                return cls(bone)
-        return None
+        return next(
+            (
+                cls(bone)
+                for bone in armature.pose.bones
+                if bone.mmd_bone.bone_id == bone_id
+            ),
+            None,
+        )
 
     @property
     def bone_id(self):
@@ -109,7 +111,10 @@ class FnBone(object):
                 if fixed_axis.length:
                     axes = [bone.x_axis, bone.y_axis, bone.z_axis]
                     direction = fixed_axis.normalized().xzy
-                    idx, val = max([(i, direction.dot(v)) for i, v in enumerate(axes)], key=lambda x: abs(x[1]))
+                    idx, val = max(
+                        ((i, direction.dot(v)) for i, v in enumerate(axes)),
+                        key=lambda x: abs(x[1]),
+                    )
                     idx_1, idx_2 = (idx+1)%3, (idx+2)%3
                     axes[idx] = -direction if val < 0 else direction
                     axes[idx_2] = axes[idx].cross(axes[idx_1])
@@ -168,7 +173,10 @@ class FnBone(object):
     @classmethod
     def update_bone_roll(cls, edit_bone, mmd_local_axis_x, mmd_local_axis_z):
         axes = cls.get_axes(mmd_local_axis_x, mmd_local_axis_z)
-        idx, val = max([(i, edit_bone.vector.dot(v)) for i, v in enumerate(axes)], key=lambda x: abs(x[1]))
+        idx, val = max(
+            ((i, edit_bone.vector.dot(v)) for i, v in enumerate(axes)),
+            key=lambda x: abs(x[1]),
+        )
         edit_bone.align_roll(axes[(idx-1)%3 if val < 0 else (idx+1)%3])
 
     @staticmethod
@@ -181,12 +189,15 @@ class FnBone(object):
 
     @classmethod
     def apply_auto_bone_roll(cls, armature):
-        bone_names = []
-        for b in armature.pose.bones:
-            if (not b.is_mmd_shadow_bone and
-                    not b.mmd_bone.enabled_local_axes and
-                    cls.has_auto_local_axis(b.mmd_bone.name_j)):
-                bone_names.append(b.name)
+        bone_names = [
+            b.name
+            for b in armature.pose.bones
+            if (
+                not b.is_mmd_shadow_bone
+                and not b.mmd_bone.enabled_local_axes
+                and cls.has_auto_local_axis(b.mmd_bone.name_j)
+            )
+        ]
         with bpyutils.edit_object(armature) as data:
             for bone in data.edit_bones:
                 if bone.name not in bone_names:
@@ -253,8 +264,9 @@ class FnBone(object):
         }
         def __is_at_shadow_bone(b):
             return b.is_mmd_shadow_bone and b.mmd_shadow_bone_type in shadow_bone_types
+
         shadow_bone_names = [b.name for b in armature.pose.bones if __is_at_shadow_bone(b)]
-        if len(shadow_bone_names) > 0:
+        if shadow_bone_names:
             with bpyutils.edit_object(armature) as data:
                 remove_edit_bones(data.edit_bones, shadow_bone_names)
         cls.patch_rna_idprop(armature.pose.bones)
@@ -306,10 +318,7 @@ class FnBone(object):
         if not target_bone or (mute_rotation and mute_location) or influence == 0:
             rot = remove_constraint(constraints, 'mmd_additional_rotation')
             loc = remove_constraint(constraints, 'mmd_additional_location')
-            if rot or loc:
-                return _AT_ShadowBoneRemove(bone_name)
-            return None
-
+            return _AT_ShadowBoneRemove(bone_name) if rot or loc else None
         shadow_bone = _AT_ShadowBoneCreate(bone_name, target_bone)
 
         def __config(name, mute, map_type, value):
@@ -338,7 +347,7 @@ class FnBone(object):
 
 class _AT_ShadowBoneRemove:
     def __init__(self, bone_name):
-        self.__shadow_bone_names = ('_dummy_' + bone_name, '_shadow_' + bone_name)
+        self.__shadow_bone_names = f'_dummy_{bone_name}', f'_shadow_{bone_name}'
 
     def update_edit_bones(self, edit_bones):
         remove_edit_bones(edit_bones, self.__shadow_bone_names)
@@ -348,8 +357,8 @@ class _AT_ShadowBoneRemove:
 
 class _AT_ShadowBoneCreate:
     def __init__(self, bone_name, target_bone_name):
-        self.__dummy_bone_name = '_dummy_' + bone_name
-        self.__shadow_bone_name = '_shadow_' + bone_name
+        self.__dummy_bone_name = f'_dummy_{bone_name}'
+        self.__shadow_bone_name = f'_shadow_{bone_name}'
         self.__bone_name = bone_name
         self.__target_bone_name = target_bone_name
         self.__constraint_pool = []

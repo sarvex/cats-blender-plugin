@@ -23,7 +23,7 @@ def _get_name(prop):
 def _set_name(prop, value):
     mmd_root = prop.id_data.mmd_root
     #morph_type = mmd_root.active_morph_type
-    morph_type = '%s_morphs'%prop.bl_rna.identifier[:-5].lower()
+    morph_type = f'{prop.bl_rna.identifier[:-5].lower()}_morphs'
     #assert(prop.bl_rna.identifier.endswith('Morph'))
     #print('_set_name:', prop, value, morph_type)
     prop_name = prop.get('name', None)
@@ -55,11 +55,10 @@ def _set_name(prop, value):
                 for vg in vg_list[prop_name]:
                     vg.name = vg.name.replace(prop_name, value)
 
-        if 1:#morph_type != 'group_morphs':
-            for m in mmd_root.group_morphs:
-                for d in m.data:
-                    if d.name == prop_name and d.morph_type == morph_type:
-                        d.name = value
+        for m in mmd_root.group_morphs:
+            for d in m.data:
+                if d.name == prop_name and d.morph_type == morph_type:
+                    d.name = value
 
         frame_facial = mmd_root.display_item_frames.get(u'表情')
         for item in getattr(frame_facial, 'data', []):
@@ -69,8 +68,7 @@ def _set_name(prop, value):
 
         obj = FnModel(prop.id_data).morph_slider.placeholder()
         if obj and value not in obj.data.shape_keys.key_blocks:
-            kb = obj.data.shape_keys.key_blocks.get(prop_name, None)
-            if kb:
+            if kb := obj.data.shape_keys.key_blocks.get(prop_name, None):
                 kb.name = value
 
     prop['name'] = value
@@ -110,9 +108,7 @@ def _get_bone(prop):
     fnModel = FnModel(root)
     arm = fnModel.armature()
     fnBone = FnBone.from_bone_id(arm, bone_id)
-    if not fnBone:
-        return ''
-    return fnBone.pose_bone.name
+    return '' if not fnBone else fnBone.pose_bone.name
 
 def _set_bone(prop, value):
     root = prop.id_data
@@ -128,10 +124,8 @@ def _set_bone(prop, value):
 def _update_bone_morph_data(prop, context):
     if not prop.name.startswith('mmd_bind'):
         return
-    arm = FnModel(prop.id_data).morph_slider.dummy_armature
-    if arm:
-        bone = arm.pose.bones.get(prop.name, None)
-        if bone:
+    if arm := FnModel(prop.id_data).morph_slider.dummy_armature:
+        if bone := arm.pose.bones.get(prop.name, None):
             bone.location = prop.location
             bone.rotation_quaternion = prop.rotation.__class__(*prop.rotation.to_axis_angle()) # Fix for consistency
 
@@ -187,9 +181,7 @@ def _get_material(prop):
     if mat_id < 0:
         return ''
     fnMat = FnMaterial.from_material_id(mat_id)
-    if not fnMat:
-        return ''
-    return fnMat.material.name
+    return '' if not fnMat else fnMat.material.name
 
 def _set_material(prop, value):
     if value not in bpy.data.materials.keys():
@@ -201,10 +193,7 @@ def _set_material(prop, value):
 
 def _set_related_mesh(prop, value):
     rig = FnModel(prop.id_data)
-    if rig.findMesh(value):
-        prop['related_mesh'] = value
-    else:
-        prop['related_mesh'] = ''
+    prop['related_mesh'] = value if rig.findMesh(value) else ''
 
 def _get_related_mesh(prop):
     return prop.get('related_mesh', '')

@@ -94,7 +94,7 @@ class VPDExporter:
                 else:
                     folder = os.path.dirname(filepath)
                     for i, m in enumerate(pose_markers):
-                        __export_index(i, os.path.join(folder, m.name+'.vpd'))
+                        __export_index(i, os.path.join(folder, f'{m.name}.vpd'))
         finally:
             for b, bak in backup.items():
                 b.matrix_basis, b.bone.select = bak
@@ -108,10 +108,11 @@ class VPDExporter:
 
         vpd_morphs = []
         key_blocks = meshObj.data.shape_keys.key_blocks
-        for i in key_blocks.values():
-            if i.value == 0:
-                continue
-            vpd_morphs.append(vpd.VpdMorph(i.name, i.value))
+        vpd_morphs.extend(
+            vpd.VpdMorph(i.name, i.value)
+            for i in key_blocks.values()
+            if i.value != 0
+        )
         return vpd_morphs
 
 
@@ -120,7 +121,7 @@ class VPDExporter:
         mesh = args.get('mesh', None)
         filepath = args.get('filepath', '')
         self.__scale = args.get('scale', 1.0)
-        self.__osm_name = '%s.osm'%args.get('model_name', None)
+        self.__osm_name = f"{args.get('model_name', None)}.osm"
 
         pose_type = args.get('pose_type', 'CURRENT')
         if pose_type == 'CURRENT':

@@ -231,7 +231,9 @@ class EdgePreviewSetup(Operator):
         material_offset = len(materials)
         for m in tuple(materials):
             if m and m.mmd_material.enabled_toon_edge:
-                mat_edge = self.__get_edge_material('mmd_edge.'+m.name, m.mmd_material.edge_color, materials)
+                mat_edge = self.__get_edge_material(
+                    f'mmd_edge.{m.name}', m.mmd_material.edge_color, materials
+                )
                 materials.append(mat_edge)
             elif material_offset > 1:
                 mat_edge = self.__get_edge_material('mmd_edge.disabled', (0, 0, 0, 0), materials)

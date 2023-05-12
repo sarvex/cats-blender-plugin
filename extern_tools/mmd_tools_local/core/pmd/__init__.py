@@ -155,7 +155,7 @@ class Material:
             self.texture_path = t.pop(0)
         if len(t) > 0:
             self.sphere_path = t.pop(0)
-            if 'aA'.find(self.sphere_path[-1]) != -1:
+            if self.sphere_path[-1] in 'aA':
                 self.sphere_mode = 2
 
 class Bone:
@@ -177,10 +177,7 @@ class Bone:
         if self.tail_bone == 0xffff:
             self.tail_bone = -1
         self.type = fs.readByte()
-        if self.type == 9:
-            self.ik_bone = fs.readShort()
-        else:
-            self.ik_bone = fs.readUnsignedShort()
+        self.ik_bone = fs.readShort() if self.type == 9 else fs.readUnsignedShort()
         self.position = fs.readVector(3)
 
 class IK:
@@ -208,8 +205,9 @@ class IK:
         self.iterations = fs.readUnsignedShort()
         self.control_weight = fs.readFloat()
         self.ik_child_bones = []
-        for i in range(self.ik_chain):
-            self.ik_child_bones.append(fs.readUnsignedShort())
+        self.ik_child_bones.extend(
+            fs.readUnsignedShort() for _ in range(self.ik_chain)
+        )
 
 class MorphData:
     def __init__(self):
@@ -231,7 +229,7 @@ class VertexMorph:
         self.name = fs.readStr(20)
         data_size = fs.readUnsignedInt()
         self.type = fs.readByte()
-        for i in range(data_size):
+        for _ in range(data_size):
             t = MorphData()
             t.load(fs)
             self.data.append(t)
@@ -356,7 +354,7 @@ class Model:
         logging.info('------------------------------')
         self.vertices = []
         vert_count = fs.readUnsignedInt()
-        for i in range(vert_count):
+        for _ in range(vert_count):
             v = Vertex()
             v.load(fs)
             self.vertices.append(v)
@@ -369,7 +367,7 @@ class Model:
         logging.info('------------------------------')
         self.faces = []
         face_vert_count = fs.readUnsignedInt()
-        for i in range(int(face_vert_count/3)):
+        for _ in range(int(face_vert_count/3)):
             f1 = fs.readUnsignedShort()
             f2 = fs.readUnsignedShort()
             f3 = fs.readUnsignedShort()

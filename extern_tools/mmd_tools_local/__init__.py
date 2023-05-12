@@ -19,8 +19,11 @@ def register_wrap(cls):
     #print('%3d'%len(__bl_classes), cls)
     #assert(cls not in __bl_classes)
     if __make_annotations:
-        bl_props = {k:v for k, v in cls.__dict__.items() if isinstance(v, __bpy_property)}
-        if bl_props:
+        if bl_props := {
+            k: v
+            for k, v in cls.__dict__.items()
+            if isinstance(v, __bpy_property)
+        }:
             if '__annotations__' not in cls.__dict__:
                 setattr(cls, '__annotations__', {})
             annotations = cls.__dict__['__annotations__']

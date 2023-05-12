@@ -169,9 +169,9 @@ class MMD_TOOLS_UL_ModelBones(UIList):
                         bone_chain = [b] + b.parent_recursive
                     for l in bone_chain[:c.chain_count]:
                         cls._IK_MAP.setdefault(hash(l), []).append(c.subtarget)
-                if 'mmd_ik_target_custom' == c.name:
+                if c.name == 'mmd_ik_target_custom':
                     ik_target_custom[getattr(c, 'subtarget', '')] = hash(b)
-                elif 'mmd_ik_target_override' == c.name and b.parent:
+                elif c.name == 'mmd_ik_target_override' and b.parent:
                     if b.parent.name == getattr(c, 'subtarget', ''):
                         for c in b.parent.constraints:
                             if c.type == 'IK' and c.subtarget in pose_bones and c.subtarget not in ik_target_override and c.subtarget not in ik_target_custom:
@@ -191,8 +191,7 @@ class MMD_TOOLS_UL_ModelBones(UIList):
 
         for k, v in tuple(cls._IK_BONES.items()):
             if isinstance(v, str):
-                b = cls.__get_ik_target_bone(pose_bones[v])
-                if b:
+                if b := cls.__get_ik_target_bone(pose_bones[v]):
                     cls._IK_BONES[k] = hash(b)
                     cls._IK_MAP.setdefault(hash(b), []).append(k)
                 else:
@@ -236,8 +235,7 @@ class MMD_TOOLS_UL_ModelBones(UIList):
             bone_transform_rank = index + mmd_bone.transform_order*count
 
             r = row_sub.row()
-            bone_parent = bone.parent
-            if bone_parent:
+            if bone_parent := bone.parent:
                 bone_parent = bone_parent.name
                 idx = vertex_groups.get(bone_parent, _DummyVertexGroup).index
                 if idx is None or bone_transform_rank < (idx + pose_bones[bone_parent].mmd_bone.transform_order*count):

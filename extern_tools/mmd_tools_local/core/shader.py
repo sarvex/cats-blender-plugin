@@ -103,7 +103,9 @@ class _MaterialMorph:
     def update_morph_inputs(cls, material, morph):
         if material and material.node_tree and morph.name in material.node_tree.nodes:
             cls.__update_node_inputs(material.node_tree.nodes[morph.name], morph)
-            cls.update_morph_inputs(bpy.data.materials.get('mmd_edge.'+material.name, None), morph)
+            cls.update_morph_inputs(
+                bpy.data.materials.get(f'mmd_edge.{material.name}', None), morph
+            )
 
     @classmethod
     def setup_morph_nodes(cls, material, morphs):
@@ -190,10 +192,10 @@ class _MaterialMorph:
             cls.__update_node_inputs(node, morph)
             if prev_node:
                 for id_name in ('Ambient', 'Diffuse', 'Specular' , 'Reflect','Alpha'):
-                    links.new(prev_node.outputs[id_name], node.inputs[id_name+'1'])
+                    links.new(prev_node.outputs[id_name], node.inputs[f'{id_name}1'])
                 for id_name in ('Edge', 'Base', 'Toon' , 'Sphere'):
-                    links.new(prev_node.outputs[id_name+' RGB'], node.inputs[id_name+'1 RGB'])
-                    links.new(prev_node.outputs[id_name+' A'], node.inputs[id_name+'1 A'])
+                    links.new(prev_node.outputs[f'{id_name} RGB'], node.inputs[f'{id_name}1 RGB'])
+                    links.new(prev_node.outputs[f'{id_name} A'], node.inputs[f'{id_name}1 A'])
             else: # initial first node
                 if node.node_tree.name.endswith('Add'):
                     node.inputs['Base1 A'].default_value = 1
@@ -227,7 +229,7 @@ class _MaterialMorph:
 
     @classmethod
     def __get_shader(cls, morph_type):
-        group_name = 'MMDMorph' + cls._LEGACY_MODE + morph_type
+        group_name = f'MMDMorph{cls._LEGACY_MODE}{morph_type}'
         shader = bpy.data.node_groups.get(group_name, None) or bpy.data.node_groups.new(name=group_name, type='ShaderNodeTree')
         if len(shader.nodes):
             return shader
@@ -284,8 +286,12 @@ class _MaterialMorph:
 
             node_final = ng.new_mix_node('MULTIPLY' if use_mul else 'ADD', (pos[0]+2+use_mul, pos[1]), fac=1.0)
 
-            out_vector1 = __new_io_vector_wrap('%s1'%id_name+tag, (pos[0]+1.5+use_mul, pos[1]+0.1))
-            out_vector2 = __new_io_vector_wrap('%s2'%id_name+tag, (pos[0]+0.5, pos[1]-0.1))
+            out_vector1 = __new_io_vector_wrap(
+                f'{id_name}1{tag}', (pos[0] + 1.5 + use_mul, pos[1] + 0.1)
+            )
+            out_vector2 = __new_io_vector_wrap(
+                f'{id_name}2{tag}', (pos[0] + 0.5, pos[1] - 0.1)
+            )
             links.new(out_vector1, node_final.inputs['Color1'])
             links.new(out_vector2, node_mul.inputs['Color2'])
             links.new(out_color, node_mul.inputs['Color1'])
@@ -307,8 +313,8 @@ class _MaterialMorph:
 
             node_final = ng.new_math_node('MULTIPLY' if use_mul else 'ADD', (pos[0]+2+use_mul, pos[1]))
 
-            ng.new_input_socket('%s1'%id_name+tag, node_final.inputs[0], use_mul)
-            ng.new_input_socket('%s2'%id_name+tag, node_mul.inputs[1], use_mul)
+            ng.new_input_socket(f'{id_name}1{tag}', node_final.inputs[0], use_mul)
+            ng.new_input_socket(f'{id_name}2{tag}', node_mul.inputs[1], use_mul)
             ng.new_output_socket(id_name+tag, node_final.outputs['Value'])
 
             links.new(node_input.outputs['Fac'], node_mul.inputs[0])
@@ -332,9 +338,9 @@ class _MaterialMorph:
             links.new(node_mul.outputs['Color'], node_blend.inputs['Color1'])
             links.new(out_tex_a_inv, node_blend.inputs['Color2'])
 
-            ng.new_output_socket(id_name+' Tex', node_blend.outputs['Color'])
+            ng.new_output_socket(f'{id_name} Tex', node_blend.outputs['Color'])
             if id_name == 'Sphere':
-                ng.new_output_socket(id_name+' Tex Add', node_mul.outputs['Color'])
+                ng.new_output_socket(f'{id_name} Tex Add', node_mul.outputs['Color'])
 
         pos_x = -2
         __blend_color_add('Ambient', (pos_x, 1.5))

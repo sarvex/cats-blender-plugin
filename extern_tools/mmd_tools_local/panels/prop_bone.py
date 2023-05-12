@@ -18,15 +18,22 @@ class MMDBonePanel(Panel):
 
     def __draw_ik_data(self, pose_bone):
         bones = pose_bone.id_data.pose.bones
-        ik_bone_names = tuple(c.subtarget for c in pose_bone.constraints if c.type == 'IK' and c.subtarget in bones)
-        if ik_bone_names:
+        if ik_bone_names := tuple(
+            c.subtarget
+            for c in pose_bone.constraints
+            if c.type == 'IK' and c.subtarget in bones
+        ):
             ik_custom_map = {getattr(b.constraints.get('mmd_ik_target_custom', None), 'subtarget', None) for b in bones if not b.is_mmd_shadow_bone}
             row = self.layout.column(align=True)
             for name in ik_bone_names:
                 if name in ik_custom_map:
                     row.prop(bones[name].mmd_bone, 'ik_rotation_constraint', text='IK Angle {%s}'%name)
                 else:
-                    row.prop(pose_bone.mmd_bone, 'ik_rotation_constraint', text='IK Angle (%s)'%name)
+                    row.prop(
+                        pose_bone.mmd_bone,
+                        'ik_rotation_constraint',
+                        text=f'IK Angle ({name})',
+                    )
 
     def draw(self, context):
         pose_bone = context.active_pose_bone or \

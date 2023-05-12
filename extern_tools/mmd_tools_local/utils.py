@@ -67,8 +67,7 @@ def convertNameToLR(name, use_underscore=False):
     delimiter = '_' if use_underscore else '.'
     if m:
         name = m.group(1) + m.group(2) + delimiter + 'L'
-    m = __CONVERT_NAME_TO_R_REGEXP.match(name)
-    if m:
+    if m := __CONVERT_NAME_TO_R_REGEXP.match(name):
         name = m.group(1) + m.group(2) + delimiter + 'R'
     return name
 
@@ -87,33 +86,33 @@ def mergeVertexGroup(meshObj, src_vertex_group_name, dest_vertex_group_name):
             pass
 
 def __getCustomNormalKeeper(mesh):
-    if hasattr(mesh, 'has_custom_normals') and mesh.use_auto_smooth:
-        import bpy
-        class _CustomNormalKeeper:
-            def __init__(self, mesh):
-                mesh.calc_normals_split()
-                self.__normals = tuple(zip((l.normal.copy() for l in mesh.loops), (p.material_index for p in mesh.polygons for v in p.vertices)))
-                mesh.free_normals_split()
-                self.__material_map = {}
-                materials = mesh.materials
-                for i, m in enumerate(materials):
-                    if m is None or m.name in self.__material_map:
-                        materials[i] = bpy.data.materials.new('_mmd_tmp_')
-                    self.__material_map[materials[i].name] = (i, getattr(m, 'name', ''))
+    if not hasattr(mesh, 'has_custom_normals') or not mesh.use_auto_smooth:
+        return None
+    import bpy
+    class _CustomNormalKeeper:
+        def __init__(self, mesh):
+            mesh.calc_normals_split()
+            self.__normals = tuple(zip((l.normal.copy() for l in mesh.loops), (p.material_index for p in mesh.polygons for v in p.vertices)))
+            mesh.free_normals_split()
+            self.__material_map = {}
+            materials = mesh.materials
+            for i, m in enumerate(materials):
+                if m is None or m.name in self.__material_map:
+                    materials[i] = bpy.data.materials.new('_mmd_tmp_')
+                self.__material_map[materials[i].name] = (i, getattr(m, 'name', ''))
 
-            def restore_custom_normals(self, mesh):
-                materials = mesh.materials
-                for i, m in enumerate(materials):
-                    mat_id, mat_name_orig = self.__material_map[m.name]
-                    if m.name != mat_name_orig:
-                        materials[i] = bpy.data.materials.get(mat_name_orig, None)
-                        m.user_clear()
-                        bpy.data.materials.remove(m)
-                if len(materials) == 1:
-                    mesh.normals_split_custom_set([n for n, x in self.__normals if x == mat_id])
-                    mesh.update()
-        return _CustomNormalKeeper(mesh) # This fixes the issue that "SeparateByMaterials" could break custom normals
-    return None
+        def restore_custom_normals(self, mesh):
+            materials = mesh.materials
+            for i, m in enumerate(materials):
+                mat_id, mat_name_orig = self.__material_map[m.name]
+                if m.name != mat_name_orig:
+                    materials[i] = bpy.data.materials.get(mat_name_orig, None)
+                    m.user_clear()
+                    bpy.data.materials.remove(m)
+            if len(materials) == 1:
+                mesh.normals_split_custom_set([n for n, x in self.__normals if x == mat_id])
+                mesh.update()
+    return _CustomNormalKeeper(mesh) # This fixes the issue that "SeparateByMaterials" could break custom normals
 
 def separateByMaterials(meshObj):
     if len(meshObj.data.materials) < 2:
@@ -142,11 +141,7 @@ def separateByMaterials(meshObj):
 
 def clearUnusedMeshes():
     import bpy
-    meshes_to_delete = []
-    for mesh in bpy.data.meshes:
-        if mesh.users == 0:
-            meshes_to_delete.append(mesh)
-
+    meshes_to_delete = [mesh for mesh in bpy.data.meshes if mesh.users == 0]
     for mesh in meshes_to_delete:
         bpy.data.meshes.remove(mesh)
 
@@ -191,7 +186,7 @@ def int2base(x, base, width=0):
         x //= base
     digits = '0'*(width-len(digits)) + digits
     if negtive:
-        digits = '-' + digits
+        digits = f'-{digits}'
     return digits
 
 def saferelpath(path, start, strategy='inside'):
@@ -211,13 +206,12 @@ def saferelpath(path, start, strategy='inside'):
     if os.name == 'nt':
         d1 = os.path.splitdrive(path)[0]
         d2 = os.path.splitdrive(start)[0]
-        if d1 != d2:
-            if strategy == 'outside':
-                result = '..'+os.sep+os.path.basename(path)
-            elif strategy == 'absolute':
-                result = os.path.abspath(path)
-        else:
+        if d1 == d2:
             result = os.path.relpath(path, start)
+        elif strategy == 'outside':
+            result = f'..{os.sep}{os.path.basename(path)}'
+        elif strategy == 'absolute':
+            result = os.path.abspath(path)
     else:
         result = os.path.relpath(path, start)
     return result
@@ -226,18 +220,16 @@ def saferelpath(path, start, strategy='inside'):
 class ItemOp:
     @staticmethod
     def get_by_index(items, index):
-        if 0 <= index < len(items):
-            return items[index]
-        return None
+        return items[index] if 0 <= index < len(items) else None
 
     @staticmethod
     def resize(items, length):
         count = length - len(items)
         if count > 0:
-            for i in range(count):
+            for _ in range(count):
                 items.add()
         elif count < 0:
-            for i in range(-count):
+            for _ in range(-count):
                 items.remove(length)
 
     @staticmethod

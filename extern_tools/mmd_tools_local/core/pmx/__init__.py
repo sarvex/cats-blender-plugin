@@ -44,10 +44,10 @@ class FileReadStream(FileStream):
 
     def __readIndex(self, size, typedict):
         index = None
-        if size in typedict :
+        if size in typedict:
             index, = struct.unpack(typedict[size], self.__fin.read(size))
         else:
-            raise ValueError('invalid data size %s'%str(size))
+            raise ValueError(f'invalid data size {str(size)}')
         return index
 
     def __readSignedIndex(self, size):
@@ -118,10 +118,10 @@ class FileWriteStream(FileStream):
         FileStream.__init__(self, path, self.__fout, pmx_header)
 
     def __writeIndex(self, index, size, typedict):
-        if size in typedict :
+        if size in typedict:
             self.__fout.write(struct.pack(typedict[size], int(index)))
         else:
-            raise ValueError('invalid data size %s'%str(size))
+            raise ValueError(f'invalid data size {str(size)}')
         return
 
     def __writeSignedIndex(self, index, size):
@@ -191,11 +191,11 @@ class Encoding:
         t = None
         if isinstance(arg, str):
             t = list(filter(lambda x: x[1]==arg, self._MAP))
-            if len(t) == 0:
-                raise ValueError('invalid charset %s'%arg)
+            if not t:
+                raise ValueError(f'invalid charset {arg}')
         elif isinstance(arg, int):
             t = list(filter(lambda x: x[0]==arg, self._MAP))
-            if len(t) == 0:
+            if not t:
                 raise ValueError('invalid index %d'%arg)
         else:
             raise ValueError('invalid argument type')
@@ -204,7 +204,7 @@ class Encoding:
         self.charset  = t[1]
 
     def __repr__(self):
-        return '<Encoding charset %s>'%self.charset
+        return f'<Encoding charset {self.charset}>'
 
 class Coordinate:
     """ """
@@ -242,9 +242,7 @@ class Header:
 
     @staticmethod
     def __getIndexSize(num, signed):
-        s = 1
-        if signed:
-            s = 2
+        s = 2 if signed else 1
         if (1<<8)/s > num:
             return 1
         elif (1<<16)/s > num:
@@ -368,7 +366,7 @@ class Model:
         logging.info('------------------------------')
         num_vertices = fs.readInt()
         self.vertices = []
-        for i in range(num_vertices):
+        for _ in range(num_vertices):
             v = Vertex()
             v.load(fs)
             self.vertices.append(v)
@@ -380,7 +378,7 @@ class Model:
         logging.info('------------------------------')
         num_faces = fs.readInt()
         self.faces = []
-        for i in range(int(num_faces/3)):
+        for _ in range(int(num_faces/3)):
             f1 = fs.readVertexIndex()
             f2 = fs.readVertexIndex()
             f3 = fs.readVertexIndex()
@@ -635,13 +633,7 @@ comment(english):
 
 
     def __repr__(self):
-        return '<Model name %s, name_e %s, comment %s, comment_e %s, textures %s>'%(
-            self.name,
-            self.name_e,
-            self.comment,
-            self.comment_e,
-            str(self.textures),
-            )
+        return f'<Model name {self.name}, name_e {self.name_e}, comment {self.comment}, comment_e {self.comment_e}, textures {str(self.textures)}>'
 
 class Vertex:
     def __init__(self):
@@ -653,22 +645,16 @@ class Vertex:
         self.edge_scale = 1
 
     def __repr__(self):
-        return '<Vertex co %s, normal %s, uv %s, additional_uvs %s, weight %s, edge_scale %s>'%(
-            str(self.co),
-            str(self.normal),
-            str(self.uv),
-            str(self.additional_uvs),
-            str(self.weight),
-            str(self.edge_scale),
-            )
+        return f'<Vertex co {str(self.co)}, normal {str(self.normal)}, uv {str(self.uv)}, additional_uvs {str(self.additional_uvs)}, weight {str(self.weight)}, edge_scale {str(self.edge_scale)}>'
 
     def load(self, fs):
         self.co = fs.readVector(3)
         self.normal = fs.readVector(3)
         self.uv = fs.readVector(2)
         self.additional_uvs = []
-        for i in range(fs.header().additional_uvs):
-            self.additional_uvs.append(fs.readVector(4))
+        self.additional_uvs.extend(
+            fs.readVector(4) for _ in range(fs.header().additional_uvs)
+        )
         self.weight = BoneWeight()
         self.weight.load(fs)
         self.edge_scale = fs.readFloat()
@@ -679,7 +665,7 @@ class Vertex:
         fs.writeVector(self.uv)
         for i in self.additional_uvs:
             fs.writeVector(i)
-        for i in range(fs.header().additional_uvs-len(self.additional_uvs)):
+        for _ in range(fs.header().additional_uvs-len(self.additional_uvs)):
             fs.writeVector((0,0,0,0))
         self.weight.save(fs)
         fs.writeFloat(self.edge_scale)
@@ -711,17 +697,11 @@ class BoneWeight:
 
     def convertIdToName(self, type_id):
         t = list(filter(lambda x: x[0]==type_id, self.TYPES))
-        if len(t) > 0:
-            return t[0][1]
-        else:
-            return None
+        return t[0][1] if t else None
 
     def convertNameToId(self, type_name):
         t = list(filter(lambda x: x[1]==type_name, self.TYPES))
-        if len(t) > 0:
-            return t[0][0]
-        else:
-            return None
+        return t[0][0] if t else None
 
     def load(self, fs):
         self.type = fs.readByte()
@@ -749,7 +729,7 @@ class BoneWeight:
             self.weights.r0 = fs.readVector(3)
             self.weights.r1 = fs.readVector(3)
         else:
-            raise ValueError('invalid weight type %s'%str(self.type))
+            raise ValueError(f'invalid weight type {str(self.type)}')
 
     def save(self, fs):
         fs.writeByte(self.type)
@@ -774,7 +754,7 @@ class BoneWeight:
             fs.writeVector(self.weights.r0)
             fs.writeVector(self.weights.r1)
         else:
-            raise ValueError('invalid weight type %s'%str(self.type))
+            raise ValueError(f'invalid weight type {str(self.type)}')
 
 
 class Texture:
@@ -782,7 +762,7 @@ class Texture:
         self.path = ''
 
     def __repr__(self):
-        return '<Texture path %s>'%str(self.path)
+        return f'<Texture path {str(self.path)}>'
 
     def load(self, fs):
         self.path = fs.readStr()
@@ -979,9 +959,7 @@ class Bone:
         self.ik_links = []
 
     def __repr__(self):
-        return '<Bone name %s, name_e %s>'%(
-            self.name,
-            self.name_e,)
+        return f'<Bone name {self.name}, name_e {self.name_e}>'
 
     def load(self, fs):
         self.name = fs.readStr()
@@ -992,11 +970,9 @@ class Bone:
         self.transform_order = fs.readInt()
 
         flags = fs.readShort()
-        if flags & 0x0001:
-            self.displayConnection = fs.readBoneIndex()
-        else:
-            self.displayConnection = fs.readVector(3)
-
+        self.displayConnection = (
+            fs.readBoneIndex() if flags & 0x0001 else fs.readVector(3)
+        )
         self.isRotatable    = ((flags & 0x0002) != 0)
         self.isMovable      = ((flags & 0x0004) != 0)
         self.visible        = ((flags & 0x0008) != 0)
@@ -1014,11 +990,7 @@ class Bone:
             self.additionalTransform = None
 
 
-        if flags & 0x0400:
-            self.axis = fs.readVector(3)
-        else:
-            self.axis = None
-
+        self.axis = fs.readVector(3) if flags & 0x0400 else None
         if flags & 0x0800:
             xaxis = fs.readVector(3)
             zaxis = fs.readVector(3)
@@ -1028,11 +1000,7 @@ class Bone:
 
         self.transAfterPhis = ((flags & 0x1000) != 0)
 
-        if flags & 0x2000:
-            self.externalTransKey = fs.readInt()
-        else:
-            self.externalTransKey = None
-
+        self.externalTransKey = fs.readInt() if flags & 0x2000 else None
         if self.isIK:
             self.target = fs.readBoneIndex()
             self.loopCount = fs.readInt()
@@ -1040,7 +1008,7 @@ class Bone:
 
             iklink_num = fs.readInt()
             self.ik_links = []
-            for i in range(iklink_num):
+            for _ in range(iklink_num):
                 link = IKLink()
                 link.load(fs)
                 self.ik_links.append(link)
@@ -1107,7 +1075,7 @@ class IKLink:
         self.minimumAngle = None
 
     def __repr__(self):
-        return '<IKLink target %s>'%(str(self.target))
+        return f'<IKLink target {str(self.target)}>'
 
     def load(self, fs):
         self.target = fs.readBoneIndex()
@@ -1142,7 +1110,7 @@ class Morph:
         self.category = category
 
     def __repr__(self):
-        return '<Morph name %s, name_e %s>'%(self.name, self.name_e)
+        return f'<Morph name {self.name}, name_e {self.name_e}>'
 
     def type_index(self):
         raise NotImplementedError
@@ -1193,7 +1161,7 @@ class VertexMorph(Morph):
 
     def load(self, fs):
         num = fs.readInt()
-        for i in range(num):
+        for _ in range(num):
             t = VertexMorphOffset()
             t.load(fs)
             self.offsets.append(t)
@@ -1222,7 +1190,7 @@ class UVMorph(Morph):
     def load(self, fs):
         self.offsets = []
         num = fs.readInt()
-        for i in range(num):
+        for _ in range(num):
             t = UVMorphOffset()
             t.load(fs)
             self.offsets.append(t)
@@ -1250,7 +1218,7 @@ class BoneMorph(Morph):
     def load(self, fs):
         self.offsets = []
         num = fs.readInt()
-        for i in range(num):
+        for _ in range(num):
             t = BoneMorphOffset()
             t.load(fs)
             self.offsets.append(t)
@@ -1283,7 +1251,7 @@ class MaterialMorph(Morph):
     def load(self, fs):
         self.offsets = []
         num = fs.readInt()
-        for i in range(num):
+        for _ in range(num):
             t = MaterialMorphOffset()
             t.load(fs)
             self.offsets.append(t)
@@ -1341,7 +1309,7 @@ class GroupMorph(Morph):
     def load(self, fs):
         self.offsets = []
         num = fs.readInt()
-        for i in range(num):
+        for _ in range(num):
             t = GroupMorphOffset()
             t.load(fs)
             self.offsets.append(t)
@@ -1370,10 +1338,7 @@ class Display:
         self.data = []
 
     def __repr__(self):
-        return '<Display name %s, name_e %s>'%(
-            self.name,
-            self.name_e,
-            )
+        return f'<Display name {self.name}, name_e {self.name_e}>'
 
     def load(self, fs):
         self.name = fs.readStr()
@@ -1382,7 +1347,7 @@ class Display:
         self.isSpecial = (fs.readByte() == 1)
         num = fs.readInt()
         self.data = []
-        for i in range(num):
+        for _ in range(num):
             disp_type = fs.readByte()
             index = None
             if disp_type == 0:
@@ -1441,21 +1406,14 @@ class Rigid:
         self.mode = 0
 
     def __repr__(self):
-        return '<Rigid name %s, name_e %s>'%(
-            self.name,
-            self.name_e,
-            )
+        return f'<Rigid name {self.name}, name_e {self.name_e}>'
 
     def load(self, fs):
         self.name = fs.readStr()
         self.name_e = fs.readStr()
 
         boneIndex = fs.readBoneIndex()
-        if boneIndex != -1:
-            self.bone = boneIndex
-        else:
-            self.bone = None
-
+        self.bone = boneIndex if boneIndex != -1 else None
         self.collision_group_number = fs.readSignedByte()
         self.collision_group_mask = fs.readUnsignedShort()
 

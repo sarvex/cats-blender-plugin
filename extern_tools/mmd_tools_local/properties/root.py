@@ -43,19 +43,19 @@ def _toggleUsePropertyDriver(self, context):
     if self.use_property_driver:
         for ik, (b, c) in ik_map.items():
             driver, variables = __driver_variables(c, 'influence')
-            driver.expression = '%s' % __add_single_prop(variables, ik.id_data, ik.path_from_id('mmd_ik_toggle'), 'use_ik').name
+            driver.expression = f"{__add_single_prop(variables, ik.id_data, ik.path_from_id('mmd_ik_toggle'), 'use_ik').name}"
             b = b if c.use_tail else b.parent
             for b in ([b]+b.parent_recursive)[:c.chain_count]:
                 c = next((c for c in b.constraints if c.type == 'LIMIT_ROTATION' and not c.mute), None)
                 if c:
                     driver, variables = __driver_variables(c, 'influence')
-                    driver.expression = '%s' % __add_single_prop(variables, ik.id_data, ik.path_from_id('mmd_ik_toggle'), 'use_ik').name
+                    driver.expression = f"{__add_single_prop(variables, ik.id_data, ik.path_from_id('mmd_ik_toggle'), 'use_ik').name}"
         for i in rig.meshes():
             for prop_hide in (prop_hide_viewport, 'hide_render'):
                 driver, variables = __driver_variables(i, prop_hide)
-                driver.expression = 'not %s' % __add_single_prop(variables, root, 'mmd_root.show_meshes', 'show').name
+                driver.expression = f"not {__add_single_prop(variables, root, 'mmd_root.show_meshes', 'show').name}"
     else:
-        for ik, (b, c) in ik_map.items():
+        for b, c in ik_map.values():
             c.driver_remove('influence')
             b = b if c.use_tail else b.parent
             for b in ([b]+b.parent_recursive)[:c.chain_count]:

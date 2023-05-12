@@ -22,7 +22,7 @@ class Header:
     def load(self, fin):
         self.signature, = struct.unpack('<30s', fin.read(30))
         if self.signature[:len(self.VMD_SIGN)] != self.VMD_SIGN:
-            raise InvalidFileError('File signature "%s" is invalid.'%self.signature)
+            raise InvalidFileError(f'File signature "{self.signature}" is invalid.')
         self.model_name = _toShiftJisString(struct.unpack('<20s', fin.read(20))[0])
 
     def save(self, fin):
@@ -30,7 +30,7 @@ class Header:
         fin.write(struct.pack('<20s', _toShiftJisBytes(self.model_name)))
 
     def __repr__(self):
-        return '<Header model_name %s>'%(self.model_name)
+        return f'<Header model_name {self.model_name}>'
 
 
 class BoneFrameKey:
@@ -55,11 +55,7 @@ class BoneFrameKey:
         fin.write(struct.pack('<64b', *self.interp))
 
     def __repr__(self):
-        return '<BoneFrameKey frame %s, loa %s, rot %s>'%(
-            str(self.frame_number),
-            str(self.location),
-            str(self.rotation),
-            )
+        return f'<BoneFrameKey frame {str(self.frame_number)}, loa {str(self.location)}, rot {str(self.rotation)}>'
 
 
 class ShapeKeyFrameKey:
@@ -76,10 +72,7 @@ class ShapeKeyFrameKey:
         fin.write(struct.pack('<f', self.weight))
 
     def __repr__(self):
-        return '<ShapeKeyFrameKey frame %s, weight %s>'%(
-            str(self.frame_number),
-            str(self.weight),
-            )
+        return f'<ShapeKeyFrameKey frame {str(self.frame_number)}, weight {str(self.weight)}>'
 
 
 class CameraKeyFrameKey:
@@ -112,14 +105,7 @@ class CameraKeyFrameKey:
         fin.write(struct.pack('<b', 0 if self.persp else 1))
 
     def __repr__(self):
-        return '<CameraKeyFrameKey frame %s, distance %s, loc %s, rot %s, angle %s, persp %s>'%(
-            str(self.frame_number),
-            str(self.distance),
-            str(self.location),
-            str(self.rotation),
-            str(self.angle),
-            str(self.persp),
-            )
+        return f'<CameraKeyFrameKey frame {str(self.frame_number)}, distance {str(self.distance)}, loc {str(self.location)}, rot {str(self.rotation)}, angle {str(self.angle)}, persp {str(self.persp)}>'
 
 
 class LampKeyFrameKey:
@@ -139,11 +125,7 @@ class LampKeyFrameKey:
         fin.write(struct.pack('<fff', *self.direction))
 
     def __repr__(self):
-        return '<LampKeyFrameKey frame %s, color %s, direction %s>'%(
-            str(self.frame_number),
-            str(self.color),
-            str(self.direction),
-            )
+        return f'<LampKeyFrameKey frame {str(self.frame_number)}, color {str(self.color)}, direction {str(self.direction)}>'
 
 
 class SelfShadowFrameKey:
@@ -169,11 +151,7 @@ class SelfShadowFrameKey:
         fin.write(struct.pack('<f', distance))
 
     def __repr__(self):
-        return '<SelfShadowFrameKey frame %s, mode %s, distance %s>'%(
-            str(self.frame_number),
-            str(self.mode),
-            str(self.distance),
-            )
+        return f'<SelfShadowFrameKey frame {str(self.frame_number)}, mode {str(self.mode)}, distance {str(self.distance)}>'
 
 
 class PropertyFrameKey:
@@ -186,7 +164,7 @@ class PropertyFrameKey:
         self.frame_number, = struct.unpack('<L', fin.read(4))
         self.visible, = struct.unpack('<b', fin.read(1))
         count, = struct.unpack('<L', fin.read(4))
-        for i in range(count):
+        for _ in range(count):
             ik_name = _toShiftJisString(struct.unpack('<20s', fin.read(20))[0])
             state, = struct.unpack('<b', fin.read(1))
             self.ik_states.append((ik_name, state))
@@ -200,11 +178,7 @@ class PropertyFrameKey:
             fin.write(struct.pack('<b', 1 if state else 0))
 
     def __repr__(self):
-        return '<PropertyFrameKey frame %s, visible %s, ik_states %s>'%(
-            str(self.frame_number),
-            str(self.visible),
-            str(self.ik_states),
-            )
+        return f'<PropertyFrameKey frame {str(self.frame_number)}, visible {str(self.visible)}, ik_states {str(self.ik_states)}>'
 
 
 class _AnimationBase(collections.defaultdict):
@@ -218,7 +192,7 @@ class _AnimationBase(collections.defaultdict):
     def load(self, fin):
         count, = struct.unpack('<L', fin.read(4))
         print('loading %s... %d'%(self.__class__.__name__, count))
-        for i in range(count):
+        for _ in range(count):
             name = _toShiftJisString(struct.unpack('<15s', fin.read(15))[0])
             cls = self.frameClass()
             frameKey = cls()
@@ -226,7 +200,7 @@ class _AnimationBase(collections.defaultdict):
             self[name].append(frameKey)
 
     def save(self, fin):
-        count = sum([len(i) for i in self.values()])
+        count = sum(len(i) for i in self.values())
         fin.write(struct.pack('<L', count))
         for name, frameKeys in self.items():
             name_data = struct.pack('<15s', _toShiftJisBytes(name))
@@ -246,7 +220,7 @@ class _AnimationListBase(list):
     def load(self, fin):
         count, = struct.unpack('<L', fin.read(4))
         print('loading %s... %d'%(self.__class__.__name__, count))
-        for i in range(count):
+        for _ in range(count):
             cls = self.frameClass()
             frameKey = cls()
             frameKey.load(fin)

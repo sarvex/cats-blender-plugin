@@ -25,10 +25,16 @@ else:
         depsgraph = bpy.context.view_layer.depsgraph
         if obj == depsgraph.objects.get(obj.name):
             return depsgraph
-        for view_layer in (l for s in bpy.data.scenes for l in s.view_layers):
-            if obj == view_layer.depsgraph.objects.get(obj.name):
-                return view_layer.depsgraph
-        return None
+        return next(
+            (
+                view_layer.depsgraph
+                for view_layer in (
+                    l for s in bpy.data.scenes for l in s.view_layers
+                )
+                if obj == view_layer.depsgraph.objects.get(obj.name)
+            ),
+            None,
+        )
 
 
 def _getMMDCameraAngle(prop):

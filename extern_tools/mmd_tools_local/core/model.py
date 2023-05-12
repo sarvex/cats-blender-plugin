@@ -32,10 +32,7 @@ def getRigidBodySize(obj):
     assert(x1 >= x0 and y1 >= y0 and z1 >= z0)
 
     shape = obj.mmd_rigid.shape
-    if shape == 'SPHERE':
-        radius = (z1 - z0)/2
-        return (radius, 0.0, 0.0)
-    elif shape == 'BOX':
+    if shape == 'BOX':
         x, y, z = (x1 - x0)/2, (y1 - y0)/2, (z1 - z0)/2
         return (x, y, z)
     elif shape == 'CAPSULE':
@@ -43,6 +40,8 @@ def getRigidBodySize(obj):
         radius = diameter/2
         height = abs((z1 - z0) - diameter)
         return (radius, height, 0.0)
+    elif shape == 'SPHERE':
+        return (z1 - z0)/2, 0.0, 0.0
     else:
         raise Exception('Invalid shape type.')
 
@@ -83,7 +82,7 @@ class Model:
         else:
             arm = bpy.data.armatures.new(name=obj_name)
             #arm.draw_type = 'STICK'
-            armObj = bpy.data.objects.new(name=obj_name+'_arm', object_data=arm)
+            armObj = bpy.data.objects.new(name=f'{obj_name}_arm', object_data=arm)
             armObj.parent = root
             scene.link_object(armObj)
         armObj.lock_rotation = armObj.lock_location = armObj.lock_scale = [True, True, True]
@@ -105,9 +104,7 @@ class Model:
     @classmethod
     def findRoot(cls, obj):
         if obj:
-            if obj.mmd_type == 'ROOT':
-                return obj
-            return cls.findRoot(obj.parent)
+            return obj if obj.mmd_type == 'ROOT' else cls.findRoot(obj.parent)
         return None
 
     def initialDisplayFrames(self, reset=True):
@@ -165,9 +162,7 @@ class Model:
             obj.mmd_rigid.shape = 'BOX'
             obj.mmd_rigid.size = (1, 1, 1)
         bpy.ops.rigidbody.object_add(type='ACTIVE')
-        if counts == 1:
-            return [obj]
-        return bpyutils.duplicateObject(obj, counts)
+        return [obj] if counts == 1 else bpyutils.duplicateObject(obj, counts)
 
     def createRigidBody(self, **kwargs):
         ''' Create a object for MMD rigid body dynamics.
@@ -268,9 +263,7 @@ class Model:
             rbc.use_spring_ang_x = True
             rbc.use_spring_ang_y = True
             rbc.use_spring_ang_z = True
-        if counts == 1:
-            return [obj]
-        return bpyutils.duplicateObject(obj, counts)
+        return [obj] if counts == 1 else bpyutils.duplicateObject(obj, counts)
 
     def createJoint(self, **kwargs):
         ''' Create a joint object for MMD rigid body dynamics.
@@ -307,7 +300,7 @@ class Model:
         if obj is None:
             obj, = self.createJointPool(1)
 
-        obj.name = 'J.' + name
+        obj.name = f'J.{name}'
         obj.mmd_joint.name_j = name
         if name_e is not None:
             obj.mmd_joint.name_e = name_e
@@ -359,24 +352,6 @@ class Model:
 
         """
         ik_target_name = ik_target.name
-        if 0 and (ik_target.head - bone.tail).length > threshold:
-            logging.debug('*** create a ik_target_dummy of bone %s', ik_target.name)
-            with bpyutils.edit_object(self.__arm) as data:
-                dummy_target = data.edit_bones.new(name=ik_target.name + '.ik_target_dummy')
-                dummy_target.head = bone.tail
-                dummy_target.tail = dummy_target.head + mathutils.Vector([0, 0, 1])
-                dummy_target.layers = (
-                    False, False, False, False, False, False, False, False,
-                    True, False, False, False, False, False, False, False,
-                    False, False, False, False, False, False, False, False,
-                    False, False, False, False, False, False, False, False
-                    )
-                dummy_target.parent = data.edit_bones[ik_target.name]
-                ik_target_name = dummy_target.name
-            dummy_ik_target = self.__arm.pose.bones[ik_target_name]
-            dummy_ik_target.is_mmd_shadow_bone = True
-            dummy_ik_target.mmd_shadow_bone_type = 'IK_TARGET'
-
         ik_const = bone.constraints.new('IK')
         ik_const.target = self.__arm
         ik_const.subtarget = ik_target_name
@@ -409,14 +384,14 @@ class Model:
             for i in filter(lambda x: x.mmd_type == 'RIGID_GRP_OBJ', self.__root.children):
                 self.__rigid_grp = i
                 break
-            if self.__rigid_grp is None:
-                rigids = bpy.data.objects.new(name='rigidbodies', object_data=None)
-                SceneOp(bpy.context).link_object(rigids)
-                rigids.mmd_type = 'RIGID_GRP_OBJ'
-                rigids.parent = self.__root
-                rigids.hide = rigids.hide_select = True
-                rigids.lock_rotation = rigids.lock_location = rigids.lock_scale = [True, True, True]
-                self.__rigid_grp = rigids
+        if self.__rigid_grp is None:
+            rigids = bpy.data.objects.new(name='rigidbodies', object_data=None)
+            SceneOp(bpy.context).link_object(rigids)
+            rigids.mmd_type = 'RIGID_GRP_OBJ'
+            rigids.parent = self.__root
+            rigids.hide = rigids.hide_select = True
+            rigids.lock_rotation = rigids.lock_location = rigids.lock_scale = [True, True, True]
+            self.__rigid_grp = rigids
         return self.__rigid_grp
 
     def jointGroupObject(self):
@@ -424,14 +399,14 @@ class Model:
             for i in filter(lambda x: x.mmd_type == 'JOINT_GRP_OBJ', self.__root.children):
                 self.__joint_grp = i
                 break
-            if self.__joint_grp is None:
-                joints = bpy.data.objects.new(name='joints', object_data=None)
-                SceneOp(bpy.context).link_object(joints)
-                joints.mmd_type = 'JOINT_GRP_OBJ'
-                joints.parent = self.__root
-                joints.hide = joints.hide_select = True
-                joints.lock_rotation = joints.lock_location = joints.lock_scale = [True, True, True]
-                self.__joint_grp = joints
+        if self.__joint_grp is None:
+            joints = bpy.data.objects.new(name='joints', object_data=None)
+            SceneOp(bpy.context).link_object(joints)
+            joints.mmd_type = 'JOINT_GRP_OBJ'
+            joints.parent = self.__root
+            joints.hide = joints.hide_select = True
+            joints.lock_rotation = joints.lock_location = joints.lock_scale = [True, True, True]
+            self.__joint_grp = joints
         return self.__joint_grp
 
     def temporaryGroupObject(self):
@@ -439,14 +414,14 @@ class Model:
             for i in filter(lambda x: x.mmd_type == 'TEMPORARY_GRP_OBJ', self.__root.children):
                 self.__temporary_grp = i
                 break
-            if self.__temporary_grp is None:
-                temporarys = bpy.data.objects.new(name='temporary', object_data=None)
-                SceneOp(bpy.context).link_object(temporarys)
-                temporarys.mmd_type = 'TEMPORARY_GRP_OBJ'
-                temporarys.parent = self.__root
-                temporarys.hide = temporarys.hide_select = True
-                temporarys.lock_rotation = temporarys.lock_location = temporarys.lock_scale = [True, True, True]
-                self.__temporary_grp = temporarys
+        if self.__temporary_grp is None:
+            temporarys = bpy.data.objects.new(name='temporary', object_data=None)
+            SceneOp(bpy.context).link_object(temporarys)
+            temporarys.mmd_type = 'TEMPORARY_GRP_OBJ'
+            temporarys.parent = self.__root
+            temporarys.hide = temporarys.hide_select = True
+            temporarys.lock_rotation = temporarys.lock_location = temporarys.lock_scale = [True, True, True]
+            self.__temporary_grp = temporarys
         return self.__temporary_grp
 
     def meshes(self):
@@ -466,10 +441,14 @@ class Model:
         """
         if mesh_name == '':
             return None
-        for mesh in self.meshes():
-            if mesh.name == mesh_name or mesh.data.name == mesh_name:
-                return mesh
-        return None
+        return next(
+            (
+                mesh
+                for mesh in self.meshes()
+                if mesh.name == mesh_name or mesh.data.name == mesh_name
+            ),
+            None,
+        )
 
     def findMeshByIndex(self, index):
         """
@@ -477,10 +456,7 @@ class Model:
         """
         if index < 0:
             return None
-        for i, mesh in enumerate(self.meshes()):
-            if i == index:
-                return mesh
-        return None
+        return next((mesh for i, mesh in enumerate(self.meshes()) if i == index), None)
 
     def getMeshIndex(self, mesh_name):
         """
@@ -488,10 +464,14 @@ class Model:
         """
         if mesh_name == '':
             return -1
-        for i, mesh in enumerate(self.meshes()):
-            if mesh.name == mesh_name or mesh.data.name == mesh_name:
-                return i
-        return -1
+        return next(
+            (
+                i
+                for i, mesh in enumerate(self.meshes())
+                if mesh.name == mesh_name or mesh.data.name == mesh_name
+            ),
+            -1,
+        )
 
     def rigidBodies(self):
         if self.__root.mmd_root.is_built:
@@ -558,10 +538,8 @@ class Model:
         logging.info('****************************************')
         start_time = time.time()
 
-        pose_bones = []
         arm = self.armature()
-        if arm is not None:
-            pose_bones = arm.pose.bones
+        pose_bones = arm.pose.bones if arm is not None else []
         for i in pose_bones:
             if 'mmd_tools_rigid_track' in i.constraints:
                 const = i.constraints['mmd_tools_rigid_track']
@@ -651,7 +629,7 @@ class Model:
 
     def __restoreTransforms(self, obj):
         for attr in ('location', 'rotation_euler'):
-            attr_name = '__backup_%s__'%attr
+            attr_name = f'__backup_{attr}__'
             val = obj.get(attr_name, None)
             if val is not None:
                 setattr(obj, attr, val)
@@ -659,7 +637,7 @@ class Model:
 
     def __backupTransforms(self, obj):
         for attr in ('location', 'rotation_euler'):
-            attr_name = '__backup_%s__'%attr
+            attr_name = f'__backup_{attr}__'
             if attr_name in obj: # should not happen in normal build/clean cycle
                 continue
             obj[attr_name] = getattr(obj, attr, None)
@@ -721,11 +699,9 @@ class Model:
             empty.matrix_world = matrix_world
         self.__empty_parent_map = None
 
-        arm = self.armature()
-        if arm:
+        if arm := self.armature():
             for p_bone in arm.pose.bones:
-                c = p_bone.constraints.get('mmd_tools_rigid_track', None)
-                if c:
+                if c := p_bone.constraints.get('mmd_tools_rigid_track', None):
                     c.mute = False
 
     def updateRigid(self, rigid_obj):
@@ -740,11 +716,7 @@ class Model:
         arm = relation.target
         bone_name = relation.subtarget
 
-        if rigid_type == rigid_body.MODE_STATIC:
-            rb.kinematic = True
-        else:
-            rb.kinematic = False
-
+        rb.kinematic = rigid_type == rigid_body.MODE_STATIC
         if arm is not None and bone_name != '':
             target_bone = arm.pose.bones[bone_name]
 
@@ -759,10 +731,7 @@ class Model:
                 rigid_obj.parent_bone = bone_name
                 rigid_obj.matrix_world = matrix_world
                 rigid_obj.scale = orig_scale
-                #relation.mute = False
-                #relation.inverse_matrix = matmul(arm.matrix_world, target_bone.bone.matrix_local).inverted()
-                fake_children = self.__fake_parent_map.get(rigid_obj, None)
-                if fake_children:
+                if fake_children := self.__fake_parent_map.get(rigid_obj, None):
                     for fake_child in fake_children:
                         logging.debug('          - fake_child: %s', fake_child.name)
                         t, r, s = matmul(m, fake_child.matrix_local).decompose()
@@ -775,8 +744,7 @@ class Model:
                 t, r, s = matmul(m, rigid_obj.matrix_local).decompose()
                 rigid_obj.location = t
                 rigid_obj.rotation_euler = r.to_euler(rigid_obj.rotation_mode)
-                fake_children = self.__fake_parent_map.get(rigid_obj, None)
-                if fake_children:
+                if fake_children := self.__fake_parent_map.get(rigid_obj, None):
                     for fake_child in fake_children:
                         logging.debug('          - fake_child: %s', fake_child.name)
                         t, r, s = matmul(m, fake_child.matrix_local).decompose()
@@ -863,7 +831,7 @@ class Model:
         logging.debug(' Build riggings of rigid bodies')
         logging.debug('--------------------------------')
         rigid_objects = list(self.rigidBodies())
-        rigid_object_groups = [[] for i in range(16)]
+        rigid_object_groups = [[] for _ in range(16)]
         for i in rigid_objects:
             rigid_object_groups[i.mmd_rigid.collision_group_number].append(i)
 

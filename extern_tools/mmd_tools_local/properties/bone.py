@@ -25,9 +25,7 @@ def _getAdditionalTransformBone(prop):
     if bone_id < 0:
         return ''
     fnBone = FnBone.from_bone_id(arm, bone_id)
-    if not fnBone:
-        return ''
-    return fnBone.pose_bone.name
+    return '' if not fnBone else fnBone.pose_bone.name
 
 def _setAdditionalTransformBone(prop, value):
     arm = prop.id_data

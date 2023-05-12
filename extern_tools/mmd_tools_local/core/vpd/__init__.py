@@ -10,11 +10,7 @@ class VpdBone:
         self.rotation = rotation if any(rotation) else [0, 0, 0, 1]
 
     def __repr__(self):
-        return '<VpdBone %s, loc %s, rot %s>'%(
-            self.bone_name,
-            str(self.location),
-            str(self.rotation),
-            )
+        return f'<VpdBone {self.bone_name}, loc {str(self.location)}, rot {str(self.rotation)}>'
 
 class VpdMorph:
     def __init__(self, morph_name, weight):

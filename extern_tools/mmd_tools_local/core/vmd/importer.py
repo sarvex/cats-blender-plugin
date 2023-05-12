@@ -369,10 +369,10 @@ class VMDImporter:
             data_path_rot = prop_rot_map.get(bone.rotation_mode, 'rotation_euler')
             bone_rotation = getattr(bone, data_path_rot)
             default_values = list(bone.location) + list(bone_rotation)
-            data_path = 'pose.bones["%s"].location'%bone.name
+            data_path = f'pose.bones["{bone.name}"].location'
             for axis_i in range(3):
                 fcurves[axis_i] = action.fcurves.new(data_path=data_path, index=axis_i, action_group=bone.name)
-            data_path = 'pose.bones["%s"].%s'%(bone.name, data_path_rot)
+            data_path = f'pose.bones["{bone.name}"].{data_path_rot}'
             for axis_i in range(len(bone_rotation)):
                 fcurves[3+axis_i] = action.fcurves.new(data_path=data_path, index=axis_i, action_group=bone.name)
 
@@ -433,8 +433,7 @@ class VMDImporter:
             logging.debug('(IK) frame:%5d  list: %s', keyFrame.frame_number, keyFrame.ik_states)
             frame = keyFrame.frame_number + self.__frame_margin
             for ikName, enable in keyFrame.ik_states:
-                bone = pose_bones.get(ikName, None)
-                if bone:
+                if bone := pose_bones.get(ikName, None):
                     bone.mmd_ik_toggle = enable
                     bone.keyframe_insert(data_path='mmd_ik_toggle', frame=frame)
 
@@ -459,7 +458,7 @@ class VMDImporter:
                 continue
             logging.info('(mesh) frames:%5d  name: %s', len(keyFrames), name)
             shapeKey = shapeKeyDict[name]
-            fcurve = action.fcurves.new(data_path='key_blocks["%s"].value'%shapeKey.name)
+            fcurve = action.fcurves.new(data_path=f'key_blocks["{shapeKey.name}"].value')
             fcurve.keyframe_points.add(len(keyFrames))
             keyFrames.sort(key=lambda x:x.frame_number)
             for k, v in zip(keyFrames, fcurve.keyframe_points):
@@ -510,7 +509,7 @@ class VMDImporter:
 
         action_name = action_name or mmdCamera.name
         parent_action = bpy.data.actions.new(name=action_name)
-        distance_action = bpy.data.actions.new(name=action_name+'_dis')
+        distance_action = bpy.data.actions.new(name=f'{action_name}_dis')
         mmdCamera.animation_data_create().action = parent_action
         cameraObj.animation_data_create().action = distance_action
 
@@ -518,14 +517,21 @@ class VMDImporter:
         if self.__mirror:
             _loc, _rot = _MirrorMapper.get_location, _MirrorMapper.get_rotation3
 
-        fcurves = []
-        for i in range(3):
-            fcurves.append(parent_action.fcurves.new(data_path='location', index=i)) # x, y, z
-        for i in range(3):
-            fcurves.append(parent_action.fcurves.new(data_path='rotation_euler', index=i)) # rx, ry, rz
-        fcurves.append(parent_action.fcurves.new(data_path='mmd_camera.angle')) # fov
-        fcurves.append(parent_action.fcurves.new(data_path='mmd_camera.is_perspective')) # persp
-        fcurves.append(distance_action.fcurves.new(data_path='location', index=1)) # dis
+        fcurves = [
+            parent_action.fcurves.new(data_path='location', index=i)
+            for i in range(3)
+        ]
+        fcurves.extend(
+            parent_action.fcurves.new(data_path='rotation_euler', index=i)
+            for i in range(3)
+        )
+        fcurves.extend(
+            (
+                parent_action.fcurves.new(data_path='mmd_camera.angle'),
+                parent_action.fcurves.new(data_path='mmd_camera.is_perspective'),
+                distance_action.fcurves.new(data_path='location', index=1),
+            )
+        )
         for c in fcurves:
             c.keyframe_points.add(len(cameraAnim))
 
@@ -576,8 +582,8 @@ class VMDImporter:
             return
 
         action_name = action_name or mmdLamp.name
-        color_action = bpy.data.actions.new(name=action_name+'_color')
-        location_action = bpy.data.actions.new(name=action_name+'_loc')
+        color_action = bpy.data.actions.new(name=f'{action_name}_color')
+        location_action = bpy.data.actions.new(name=f'{action_name}_loc')
         lampObj.data.animation_data_create().action = color_action
         lampObj.animation_data_create().action = location_action
 
@@ -600,19 +606,17 @@ class VMDImporter:
             action_name = os.path.splitext(os.path.basename(self.__vmdFile.filepath))[0]
 
         if MMDCamera.isMMDCamera(obj):
-            self.__assignToCamera(obj, action_name+'_camera')
+            self.__assignToCamera(obj, f'{action_name}_camera')
         elif MMDLamp.isMMDLamp(obj):
-            self.__assignToLamp(obj, action_name+'_lamp')
+            self.__assignToLamp(obj, f'{action_name}_lamp')
         elif getattr(obj.data, 'shape_keys', None):
-            self.__assignToMesh(obj, action_name+'_facial')
+            self.__assignToMesh(obj, f'{action_name}_facial')
         elif obj.type == 'ARMATURE':
-            self.__assignToArmature(obj, action_name+'_bone')
+            self.__assignToArmature(obj, f'{action_name}_bone')
         elif obj.type == 'CAMERA' and self.__convert_mmd_camera:
-            self.__assignToCamera(obj, action_name+'_camera')
+            self.__assignToCamera(obj, f'{action_name}_camera')
         elif obj.type == 'LAMP' and self.__convert_mmd_lamp:
-            self.__assignToLamp(obj, action_name+'_lamp')
+            self.__assignToLamp(obj, f'{action_name}_lamp')
         elif obj.mmd_type == 'ROOT':
-            self.__assignToRoot(obj, action_name+'_display')
-        else:
-            pass
+            self.__assignToRoot(obj, f'{action_name}_display')
 

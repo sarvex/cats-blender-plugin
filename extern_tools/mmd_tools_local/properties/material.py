@@ -57,11 +57,10 @@ def _getNameJ(prop):
     return prop.get('name_j', '')
 
 def _setNameJ(prop, value):  
-    old_value = prop.get('name_j')  
+    old_value = prop.get('name_j')
     prop_value = value
     if prop_value and prop_value != old_value:
-        root = Model.findRoot(bpy.context.active_object)
-        if root:
+        if root := Model.findRoot(bpy.context.active_object):
             rig = Model(root)
             prop_value = utils.uniqueName(value, [mat.mmd_material.name_j for mat in rig.materials() if mat])
         else:

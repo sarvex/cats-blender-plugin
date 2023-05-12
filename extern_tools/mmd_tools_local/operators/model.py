@@ -240,11 +240,11 @@ class ConvertToMMDModel(Operator):
     def execute(self, context):
         #TODO convert some basic MMD properties
         armature = context.active_object
-        scale = 1
-        model_name = 'New MMD Model'
-
         root = mmd_model.Model.findRoot(armature)
         if root is None or root != armature.parent:
+            scale = 1
+            model_name = 'New MMD Model'
+
             rig = mmd_model.Model.create(model_name, model_name, scale, armature=armature)
 
         self.__attach_meshes_to(armature, SceneOp(context).id_objects)
@@ -265,9 +265,7 @@ class ConvertToMMDModel(Operator):
             return False
 
         def __get_root(mesh):
-            if mesh.parent is None:
-                return mesh
-            return __get_root(mesh.parent)
+            return mesh if mesh.parent is None else __get_root(mesh.parent)
 
         for x in objects:
             if __is_using_armature(x) and not __is_child_of_armature(x):
@@ -372,7 +370,7 @@ class TranslateMMDModel(Operator):
         try:
             self.__translator = DictionaryEnum.get_translator(self.dictionary)
         except Exception as e:
-            self.report({'ERROR'}, 'Failed to load dictionary: %s'%e)
+            self.report({'ERROR'}, f'Failed to load dictionary: {e}')
             return {'CANCELLED'}
 
         obj = context.active_object
@@ -381,7 +379,7 @@ class TranslateMMDModel(Operator):
 
         if 'MMD' in self.modes:
             for i in self.types:
-                getattr(self, 'translate_%s'%i.lower())(rig)
+                getattr(self, f'translate_{i.lower()}')(rig)
 
         if 'BLENDER' in self.modes:
             self.translate_blender_names(rig)
@@ -452,7 +450,7 @@ class TranslateMMDModel(Operator):
         attr_list = ('group', 'vertex', 'bone', 'uv', 'material')
         prefix_list = ('G_', '', 'B_', 'UV_', 'M_')
         for attr, prefix in zip(attr_list, prefix_list):
-            for m in getattr(mmd_root, attr+'_morphs', []):
+            for m in getattr(mmd_root, f'{attr}_morphs', []):
                 m.name_e = self.translate(m.name, m.name_e)
                 if not prefix:
                     continue

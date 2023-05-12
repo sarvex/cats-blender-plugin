@@ -12,7 +12,7 @@ class MMDCamera:
         if obj and obj.type == 'EMPTY' and obj.mmd_type == 'CAMERA':
             self.__emptyObj = getattr(obj, 'original', obj)
         else:
-            raise ValueError('%s is not MMDCamera'%str(obj))
+            raise ValueError(f'{str(obj)} is not MMDCamera')
 
 
     @staticmethod
@@ -123,7 +123,7 @@ class MMDCamera:
 
         action_name = mmd_cam_root.name
         parent_action = bpy.data.actions.new(name=action_name)
-        distance_action = bpy.data.actions.new(name=action_name+'_dis')
+        distance_action = bpy.data.actions.new(name=f'{action_name}_dis')
         MMDCamera.removeDrivers(mmd_cam)
 
         from math import atan
@@ -138,14 +138,21 @@ class MMDCamera:
         frame_count = frame_end - frame_start
         frames = range(frame_start, frame_end)
 
-        fcurves = []
-        for i in range(3):
-            fcurves.append(parent_action.fcurves.new(data_path='location', index=i)) # x, y, z
-        for i in range(3):
-            fcurves.append(parent_action.fcurves.new(data_path='rotation_euler', index=i)) # rx, ry, rz
-        fcurves.append(parent_action.fcurves.new(data_path='mmd_camera.angle')) # fov
-        fcurves.append(parent_action.fcurves.new(data_path='mmd_camera.is_perspective')) # persp
-        fcurves.append(distance_action.fcurves.new(data_path='location', index=1)) # dis
+        fcurves = [
+            parent_action.fcurves.new(data_path='location', index=i)
+            for i in range(3)
+        ]
+        fcurves.extend(
+            parent_action.fcurves.new(data_path='rotation_euler', index=i)
+            for i in range(3)
+        )
+        fcurves.extend(
+            (
+                parent_action.fcurves.new(data_path='mmd_camera.angle'),
+                parent_action.fcurves.new(data_path='mmd_camera.is_perspective'),
+                distance_action.fcurves.new(data_path='location', index=1),
+            )
+        )
         for c in fcurves:
             c.keyframe_points.add(frame_count)
 
@@ -161,23 +168,22 @@ class MMDCamera:
             cam_vec = matmul(cam_matrix_world.to_3x3(), neg_z_vector)
             if cameraObj.data.type == 'ORTHO':
                 cam_dis = -(9/5) * cameraObj.data.ortho_scale
-                if cameraObj.data.sensor_fit != 'VERTICAL':
-                    if cameraObj.data.sensor_fit == 'HORIZONTAL':
-                        cam_dis *= factor
-                    else:
-                        cam_dis *= min(1, factor)
+                if cameraObj.data.sensor_fit == 'HORIZONTAL':
+                    cam_dis *= factor
+                elif cameraObj.data.sensor_fit != 'VERTICAL':
+                    cam_dis *= min(1, factor)
             else:
                 target_vec = cam_target_loc - cam_matrix_world.translation
                 cam_dis = -max(target_vec.length * cam_vec.dot(target_vec.normalized()), min_distance)
             cam_target_loc = cam_matrix_world.translation - cam_vec*cam_dis
 
             tan_val = cameraObj.data.sensor_height/cameraObj.data.lens/2
-            if cameraObj.data.sensor_fit != 'VERTICAL':
+            if cameraObj.data.sensor_fit == 'HORIZONTAL':
                 ratio = cameraObj.data.sensor_width/cameraObj.data.sensor_height
-                if cameraObj.data.sensor_fit == 'HORIZONTAL':
-                    tan_val *= factor*ratio
-                else: # cameraObj.data.sensor_fit == 'AUTO'
-                    tan_val *= min(ratio, factor*ratio)
+                tan_val *= factor*ratio
+            elif cameraObj.data.sensor_fit != 'VERTICAL':
+                ratio = cameraObj.data.sensor_width/cameraObj.data.sensor_height
+                tan_val *= min(ratio, factor*ratio)
 
             x.co, y.co, z.co = ((f, i) for i in cam_target_loc)
             rx.co, ry.co, rz.co = ((f, i) for i in cam_rotation)

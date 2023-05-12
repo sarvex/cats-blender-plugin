@@ -172,7 +172,9 @@ class ImportPmx(Operator, ImportHelper):
         logger = logging.getLogger()
         logger.setLevel(self.log_level)
         if self.save_log:
-            handler = log_handler(self.log_level, filepath=self.filepath + '.mmd_tools.import.log')
+            handler = log_handler(
+                self.log_level, filepath=f'{self.filepath}.mmd_tools.import.log'
+            )
             logger.addHandler(handler)
         try:
             importer_cls = pmx_importer.PMXImporter
@@ -194,7 +196,7 @@ class ImportPmx(Operator, ImportHelper):
                 sph_blend_factor=self.sph_blend_factor,
                 spa_blend_factor=self.spa_blend_factor,
                 )
-            self.report({'INFO'}, 'Imported MMD model from "%s"'%self.filepath)
+            self.report({'INFO'}, f'Imported MMD model from "{self.filepath}"')
         except Exception as e:
             err_msg = traceback.format_exc()
             logging.error(err_msg)
@@ -501,7 +503,7 @@ class ExportPmx(Operator, ExportHelper):
                     model_name = bpy.path.clean_name(root.name)
                     model_folder = os.path.join(folder, model_name)
                     os.makedirs(model_folder, exist_ok=True)
-                    self.filepath = os.path.join(model_folder, model_name + '.pmx')
+                    self.filepath = os.path.join(model_folder, f'{model_name}.pmx')
                 self._do_execute(context, root)
         except Exception as e:
             err_msg = traceback.format_exc()
@@ -512,7 +514,9 @@ class ExportPmx(Operator, ExportHelper):
         logger = logging.getLogger()
         logger.setLevel(self.log_level)
         if self.save_log:
-            handler = log_handler(self.log_level, filepath=self.filepath + '.mmd_tools.export.log')
+            handler = log_handler(
+                self.log_level, filepath=f'{self.filepath}.mmd_tools.export.log'
+            )
             logger.addHandler(handler)
 
         rig = mmd_model.Model(root)
@@ -544,7 +548,7 @@ class ExportPmx(Operator, ExportHelper):
                 sort_vertices=self.sort_vertices,
                 disable_specular=self.disable_specular,
                 )
-            self.report({'INFO'}, 'Exported MMD model "%s" to "%s"'%(root.name, self.filepath))
+            self.report({'INFO'}, f'Exported MMD model "{root.name}" to "{self.filepath}"')
         except Exception as e:
             err_msg = traceback.format_exc()
             logging.error(err_msg)
@@ -594,10 +598,7 @@ class ExportVmd(Operator, ExportHelper):
             return True
         if obj.mmd_type == 'NONE' and (obj.type == 'ARMATURE' or getattr(obj.data, 'shape_keys', None)):
             return True
-        if MMDCamera.isMMDCamera(obj) or MMDLamp.isMMDLamp(obj):
-            return True
-
-        return False
+        return bool(MMDCamera.isMMDCamera(obj) or MMDLamp.isMMDLamp(obj))
 
     def execute(self, context):
         params = {
@@ -678,10 +679,10 @@ class ExportVpd(Operator, ExportHelper):
 
         if obj.mmd_type == 'ROOT':
             return True
-        if obj.mmd_type == 'NONE' and (obj.type == 'ARMATURE' or getattr(obj.data, 'shape_keys', None)):
-            return True
-
-        return False
+        return bool(
+            obj.mmd_type == 'NONE'
+            and (obj.type == 'ARMATURE' or getattr(obj.data, 'shape_keys', None))
+        )
 
     def draw(self, context):
         layout = self.layout

@@ -131,10 +131,8 @@ def makeCapsuleBak(segment=16, ring_count=8, radius=1.0, height=1.0, target_scen
     target_scene = SceneOp(target_scene)
     mesh = bpy.data.meshes.new(name='Capsule')
     meshObj = bpy.data.objects.new(name='Capsule', object_data=mesh)
-    vertices = []
     top = (0, 0, height/2+radius)
-    vertices.append(top)
-
+    vertices = [top]
     f = lambda i: radius*i/ring_count
     for i in range(ring_count, 0, -1):
         z = f(i-1)
@@ -157,12 +155,10 @@ def makeCapsuleBak(segment=16, ring_count=8, radius=1.0, height=1.0, target_scen
     bottom = (0, 0, -(height/2+radius))
     vertices.append(bottom)
 
-    faces = []
-    for i in range(1, segment):
-        faces.append([0, i, i+1])
+    faces = [[0, i, i+1] for i in range(1, segment)]
     faces.append([0, segment, 1])
     offset = segment + 1
-    for i in range(ring_count*2-1):
+    for _ in range(ring_count*2-1):
         for j in range(segment-1):
             t = offset + j
             faces.append([t-segment, t, t+1, t-segment+1])

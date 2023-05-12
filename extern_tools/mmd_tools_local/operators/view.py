@@ -132,8 +132,7 @@ class FlipPose(Operator):
     @classmethod
     def flip_name(cls, name):
         for regex in cls.__LR_REGEX:
-            match = regex["re"].match(name)
-            if match:
+            if match := regex["re"].match(name):
                 groups = match.groups()
                 lr = groups[regex["lr"]]
                 if lr in cls.__LR_MAP:

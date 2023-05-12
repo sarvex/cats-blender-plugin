@@ -154,10 +154,10 @@ def remove_corrupted_files():
                 print('REMOVED', file)
             except PermissionError:
                 no_perm = True
-                print("Permissions: Failed to remove file " + file)
+                print(f"Permissions: Failed to remove file {file}")
             except OSError:
                 os_error = True
-                print("OS: Failed to remove file " + file)
+                print(f"OS: Failed to remove file {file}")
 
     for folder in folders:
         if folder in to_remove:
@@ -168,10 +168,10 @@ def remove_corrupted_files():
                 print('REMOVED', folder)
             except PermissionError:
                 no_perm = True
-                print("Permissions: Failed to remove folder " + folder)
+                print(f"Permissions: Failed to remove folder {folder}")
             except OSError:
                 os_error = True
-                print("Failed to remove folder " + folder)
+                print(f"Failed to remove folder {folder}")
 
     if no_perm:
         unregister()
@@ -220,23 +220,19 @@ def check_unsupported_blender_versions():
 
 def set_cats_version_string():
     version = bl_info.get('version')
-    version_temp = []
     version_str = ''
 
-    for n in version:
-        version_temp.append(n)
-
-    if len(version_temp) > 0:
+    if version_temp := list(version):
         # if in dev version, increase version
         if dev_branch:
-            version_temp[len(version_temp)-1] += 1
+            version_temp[-1] += 1
 
         # Convert version to string
         version_str += str(version_temp[0])
         for index, i in enumerate(version_temp):
             if index == 0:
                 continue
-            version_str += '.' + str(version_temp[index])
+            version_str += f'.{str(version_temp[index])}'
 
     # Add -dev if in dev version
     if dev_branch:
@@ -277,9 +273,7 @@ def register():
     # Load mmd_tools
     try:
         mmd_tools_local.register()
-    except NameError:
-        print('Could not register local mmd_tools')
-    except AttributeError:
+    except (NameError, AttributeError):
         print('Could not register local mmd_tools')
     except ValueError:
         print('mmd_tools is already registered')
@@ -313,8 +307,6 @@ def register():
         tools.common.get_user_preferences().system.use_international_fonts = True
     elif hasattr(tools.common.get_user_preferences(), 'view') and hasattr(tools.common.get_user_preferences().view, 'use_international_fonts'):
         tools.common.get_user_preferences().view.use_international_fonts = True
-    else:
-        pass  # From 2.83 on this is no longer needed
     tools.common.get_user_preferences().filepaths.use_file_compression = True
     bpy.context.window_manager.addon_support = {'OFFICIAL', 'COMMUNITY', 'TESTING'}
 
@@ -351,23 +343,17 @@ def unregister():
         mmd_tools_local.unregister()
     except NameError:
         print('mmd_tools was not registered')
-        pass
     except AttributeError:
         print('Could not unregister local mmd_tools')
-        pass
     except ValueError:
         print('mmd_tools was not registered')
-        pass
-
     # Unload all classes in reverse order
     count = 0
     for cls in reversed(tools.register.__bl_ordered_classes):
         try:
             bpy.utils.unregister_class(cls)
             count += 1
-        except ValueError:
-            pass
-        except RuntimeError:
+        except (ValueError, RuntimeError):
             pass
     print('Unregistered', count, 'CATS classes.')
 
@@ -380,8 +366,6 @@ def unregister():
         bpy.types.MESH_MT_shape_key_specials.remove(tools.shapekey.addToShapekeyMenu)
     except AttributeError:
         print('shapekey button was not registered')
-        pass
-
     # Remove folder from sys path
     if file_dir in sys.path:
         sys.path.remove(file_dir)

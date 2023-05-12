@@ -57,10 +57,7 @@ class FixArmature(bpy.types.Operator):
         if not Common.get_armature():
             return False
 
-        if len(Common.get_armature_objects()) == 0:
-            return False
-
-        return True
+        return len(Common.get_armature_objects()) != 0
 
     def execute(self, context):
         # Todo: Remove this

@@ -70,7 +70,7 @@ class _FCurve:
         # assume set(frame_numbers) & set(self.frameNumbers()) == set(self.frameNumbers())
         fcurve = self.__fcurve
         if fcurve is None or len(fcurve.keyframe_points) < 1: # no key frames
-            for i in frame_numbers:
+            for _ in frame_numbers:
                 yield [self.__default_value, ((20, 20), (107, 107))]
             return
 
@@ -88,11 +88,11 @@ class _FCurve:
             while True:
                 frame = next(frame_iter)
                 frames.append(frame)
-                if frame >= i:
+                if frame >= prev_i:
                     break
-            assert(len(frames) >= 1 and frames[-1] == i)
+            assert frames and frames[-1] == prev_i
             if prev_kp is None:
-                for f in frames: # starting key frames
+                for _ in frames:
                     yield [kp.co[1], ((20, 20), (107, 107))]
             elif len(frames) == 1:
                 yield [kp.co[1], self.getVMDControlPoints(prev_kp, kp)]
@@ -107,7 +107,7 @@ class _FCurve:
                     yield [evaluate(f), ((20, 20), (107, 107))]
             prev_kp = kp
 
-        for f in frame_iter: # ending key frames
+        for _ in frame_iter:
             yield [prev_kp.co[1], ((20, 20), (107, 107))]
 
 
@@ -182,10 +182,10 @@ class VMDExporter:
 
     @staticmethod
     def __pickRotationInterpolation(rotation_interps):
-        for ir in rotation_interps:
-            if ir != ((20, 20), (107, 107)):
-                return ir
-        return ((20, 20), (107, 107))
+        return next(
+            (ir for ir in rotation_interps if ir != ((20, 20), (107, 107))),
+            ((20, 20), (107, 107)),
+        )
 
     @staticmethod
     def __xyzw_from_rotation_mode(mode):
@@ -221,13 +221,13 @@ class VMDExporter:
             m = rePath.match(fcurve.data_path)
             if m is None:
                 continue
-            bone = armObj.pose.bones.get(m.group(1), None)
+            bone = armObj.pose.bones.get(m[1], None)
             if bone is None:
-                logging.warning(' * Bone not found: %s', m.group(1))
+                logging.warning(' * Bone not found: %s', m[1])
                 continue
             if bone.is_mmd_shadow_bone:
                 continue
-            prop_name = m.group(2)
+            prop_name = m[2]
             if prop_name == 'mmd_ik_toggle':
                 self.__ik_fcurves[bone] = fcurve
                 continue
@@ -236,19 +236,17 @@ class VMDExporter:
 
             if bone not in anim_bones:
                 data = list(bone.location)
-                if bone.rotation_mode == 'QUATERNION':
-                    data += list(bone.rotation_quaternion)
-                elif bone.rotation_mode == 'AXIS_ANGLE':
+                if bone.rotation_mode == 'AXIS_ANGLE':
                     data += list(bone.rotation_axis_angle)
+                elif bone.rotation_mode == 'QUATERNION':
+                    data += list(bone.rotation_quaternion)
                 else:
                     data += ([bone.rotation_mode] + list(bone.rotation_euler))
                 anim_bones[bone] = [_FCurve(i) for i in data] # x, y, z, rw, rx, ry, rz
             bone_curves = anim_bones[bone]
             if prop_name == 'location': # x, y, z
                 bone_curves[fcurve.array_index].setFCurve(fcurve)
-            elif prop_name == 'rotation_quaternion': # rw, rx, ry, rz
-                bone_curves[3+fcurve.array_index].setFCurve(fcurve)
-            elif prop_name == 'rotation_axis_angle': # rw, rx, ry, rz
+            elif prop_name in ['rotation_quaternion', 'rotation_axis_angle']: # rw, rx, ry, rz
                 bone_curves[3+fcurve.array_index].setFCurve(fcurve)
             elif prop_name == 'rotation_euler': # mode, rx, ry, rz
                 bone_curves[3+fcurve.array_index+1].setFCurve(fcurve)
@@ -269,7 +267,7 @@ class VMDExporter:
                 if prev_rot is not None:
                     curr_rot = self.__minRotationDiff(prev_rot, curr_rot)
                 prev_rot = curr_rot
-                key.rotation = curr_rot[1:] + curr_rot[0:1] # (w, x, y, z) to (x, y, z, w)
+                key.rotation = curr_rot[1:] + curr_rot[:1]
                 #FIXME we can only choose one interpolation from (rw, rx, ry, rz) for bone's rotation
                 ir = self.__pickRotationInterpolation([rw[1], rx[1], ry[1], rz[1]])
                 ix, iy, iz = converter.convert_interpolation([x[1], y[1], z[1]])
@@ -308,7 +306,7 @@ class VMDExporter:
             if m is None:
                 continue
 
-            key_name = m.group(1)
+            key_name = m[1]
             kb = __get_key_block(key_name)
             if kb is None:
                 logging.warning(' * Shape key not found: %s', key_name)
@@ -409,7 +407,7 @@ class VMDExporter:
             key.rotation = [rx[0], rz[0], ry[0]] # euler
             key.angle = int(0.5 + math.degrees(fov[0]))
             key.distance = distance[0] * self.__scale
-            key.persp = True if persp[0] else False
+            key.persp = bool(persp[0])
 
             #FIXME we can only choose one interpolation from (rx, ry, rz) for camera's rotation
             ir = self.__pickRotationInterpolation([rx[1], ry[1], rz[1]])

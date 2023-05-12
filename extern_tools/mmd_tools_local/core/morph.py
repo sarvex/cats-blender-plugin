@@ -52,7 +52,7 @@ class FnMorph(object):
                 obj.active_shape_key_index = idx = key_blocks.find(name)
                 offset = (len_key_blocks - 1 - idx) - ii
                 move_type = 'UP' if offset < 0 else 'DOWN'
-                for move in range(abs(offset)):
+                for _ in range(abs(offset)):
                     bpy.ops.object.shape_key_move(type=move_type)
         else:
             for name in shape_key_names:
@@ -72,10 +72,7 @@ class FnMorph(object):
         if 'mouth' in name_lower:
             morph.category = 'MOUTH'
         elif 'eye' in name_lower:
-            if 'brow' in name_lower:
-                morph.category = 'EYEBROW'
-            else:
-                morph.category = 'EYE'
+            morph.category = 'EYEBROW' if 'brow' in name_lower else 'EYE'
 
     @classmethod
     def load_morphs(cls, rig):
@@ -136,8 +133,7 @@ class FnMorph(object):
                     vg_indices.remove(x.group)
         for i in sorted(vg_indices, reverse=True):
             vg = vertex_groups[i]
-            m = obj.modifiers.get('mmd_bind%s'%hash(vg.name), None)
-            if m:
+            if m := obj.modifiers.get(f'mmd_bind{hash(vg.name)}', None):
                 obj.modifiers.remove(m)
             vertex_groups.remove(vg)
 
@@ -192,11 +188,11 @@ class FnMorph(object):
     def update_mat_related_mesh(self, new_mesh=None):
         for offset in self.__morph.data:
             # Use the new_mesh if provided  
-            meshObj = new_mesh          
-            if new_mesh is None:
+            meshObj = new_mesh
+            if meshObj is None:
                 # Try to find the mesh by material name
                 meshObj = self.__rig.findMesh(offset.material)
-            
+
             if meshObj is None:
                 # Given this point we need to loop through all the meshes
                 for mesh in self.__rig.meshes():
@@ -251,9 +247,7 @@ class _MorphSlider:
         if obj is None:
             return None
         key_blocks = obj.data.shape_keys.key_blocks
-        if key_blocks[0].mute:
-            return None
-        return key_blocks.get(morph_name, None)
+        return None if key_blocks[0].mute else key_blocks.get(morph_name, None)
 
     def create(self):
         self.__rig.loadMorphs()
@@ -264,7 +258,7 @@ class _MorphSlider:
     def __load(self, obj, mmd_root):
         attr_list = ('group', 'vertex', 'bone', 'uv', 'material')
         morph_key_blocks = obj.data.shape_keys.key_blocks
-        for m in (x for attr in attr_list for x in getattr(mmd_root, attr+'_morphs', ())):
+        for m in (x for attr in attr_list for x in getattr(mmd_root, f'{attr}_morphs', ())):
             name = m.name
             #if name[-1] == '\\': # fix driver's bug???
             #    m.name = name = name + ' '
@@ -328,11 +322,9 @@ class _MorphSlider:
         for m in mmd_root.material_morphs:
             for d in m.data:
                 d.name = ''
-        obj = self.placeholder()
-        if obj:
+        if obj := self.placeholder():
             obj.data.shape_keys.key_blocks[0].mute = True
-            arm = self.__dummy_armature(obj)
-            if arm:
+            if arm := self.__dummy_armature(obj):
                 for b in arm.pose.bones:
                     if b.name.startswith('mmd_bind'):
                         b.driver_remove('location')

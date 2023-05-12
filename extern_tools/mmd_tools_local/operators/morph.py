@@ -30,10 +30,7 @@ def divide_vector_components(vec1, vec2):
 def multiply_vector_components(vec1, vec2):
     if len(vec1) != len(vec2):
         raise ValueError("Vectors should have the same number of components")
-    result = []
-    for v1, v2 in zip(vec1, vec2):
-        result.append(v1*v2)
-    return result
+    return [v1*v2 for v1, v2 in zip(vec1, vec2)]
 
 def special_division(n1, n2):
     """This function returns 0 in case of 0/0. If non-zero divided by zero case is found, an Exception is raised
@@ -135,7 +132,7 @@ class CopyMorph(Operator):
         if morph is None:
             return {'CANCELLED'}
 
-        name_orig, name_tmp = morph.name, '_tmp%s'%str(morph.as_pointer())
+        name_orig, name_tmp = morph.name, f'_tmp{str(morph.as_pointer())}'
 
         if morph_type.startswith('vertex'):
             for obj in mmd_model.Model(root).meshes():
@@ -149,7 +146,7 @@ class CopyMorph(Operator):
         morph_new, mmd_root.active_morph = ItemOp.add_after(morphs, mmd_root.active_morph)
         for k, v in morph.items():
             morph_new[k] = v if k != 'name' else name_tmp
-        morph_new.name = name_orig + '_copy' # trigger name check
+        morph_new.name = f'{name_orig}_copy'
         return {'FINISHED'}
 
 @register_wrap
@@ -178,8 +175,7 @@ class AddMorphOffset(Operator):
                     item.material = active_material.name
 
         elif morph_type.startswith('bone'):
-            pose_bone = context.active_pose_bone
-            if pose_bone:
+            if pose_bone := context.active_pose_bone:
                 item.bone = pose_bone.name
                 item.location = pose_bone.location
                 item.rotation = pose_bone.rotation_quaternion
@@ -277,7 +273,7 @@ class ApplyMaterialOffset(Operator):
             self.report({ 'ERROR' }, "The model mesh can't be found")
             return { 'CANCELLED' }
         try:
-            work_mat_name = mat_data.material + '_temp'
+            work_mat_name = f'{mat_data.material}_temp'
             work_mat, base_mat = FnMaterial.swap_materials(meshObj, work_mat_name,
                                                            mat_data.material)
         except MaterialNotFoundError:
@@ -342,12 +338,12 @@ class CreateWorkMaterial(Operator):
 
         base_mat = meshObj.data.materials.get(mat_data.material, None)
         if base_mat is None:
-            self.report({ 'ERROR' }, 'Material "%s" not found'%mat_data.material)
+            self.report({ 'ERROR' }, f'Material "{mat_data.material}" not found')
             return { 'CANCELLED' }
 
-        work_mat_name = base_mat.name + '_temp'
+        work_mat_name = f'{base_mat.name}_temp'
         if work_mat_name in bpy.data.materials:
-            self.report({ 'ERROR' }, 'Temporary material "%s" is in use'%work_mat_name)
+            self.report({ 'ERROR' }, f'Temporary material "{work_mat_name}" is in use')
             return { 'CANCELLED' }
 
         work_mat = base_mat.copy()
@@ -360,7 +356,9 @@ class CreateWorkMaterial(Operator):
 
         # Apply the offsets
         if mat_data.offset_type == "MULT":
-            diffuse_offset = multiply_vector_components(base_mmd_mat.diffuse_color, mat_data.diffuse_color[0:3])
+            diffuse_offset = multiply_vector_components(
+                base_mmd_mat.diffuse_color, mat_data.diffuse_color[:3]
+            )
             specular_offset = multiply_vector_components(base_mmd_mat.specular_color, mat_data.specular_color)
             edge_offset = multiply_vector_components(base_mmd_mat.edge_color, mat_data.edge_color)
             ambient_offset = multiply_vector_components(base_mmd_mat.ambient_color, mat_data.ambient_color)
@@ -372,7 +370,9 @@ class CreateWorkMaterial(Operator):
             work_mmd_mat.edge_color = edge_offset
             work_mmd_mat.edge_weight *= mat_data.edge_weight
         elif mat_data.offset_type == "ADD":
-            diffuse_offset = Vector(base_mmd_mat.diffuse_color) + Vector(mat_data.diffuse_color[0:3])
+            diffuse_offset = Vector(base_mmd_mat.diffuse_color) + Vector(
+                mat_data.diffuse_color[:3]
+            )
             specular_offset = Vector(base_mmd_mat.specular_color) + Vector(mat_data.specular_color)
             edge_offset = Vector(base_mmd_mat.edge_color) + Vector(mat_data.edge_color)
             ambient_offset = Vector(base_mmd_mat.ambient_color) + Vector(mat_data.ambient_color)
@@ -405,8 +405,9 @@ class ClearTempMaterials(Operator):
                         FnMaterial.swap_materials(meshObj, m.name, base_mat_name)
                         return True
                     except MaterialNotFoundError:
-                        self.report({ 'WARNING' } ,'Base material for %s was not found'%m.name)
+                        self.report({ 'WARNING' }, f'Base material for {m.name} was not found')
                 return False
+
             FnMaterial.clean_materials(meshObj, can_remove=__pre_remove)
         return { 'FINISHED' }
 
@@ -427,8 +428,7 @@ class ViewBoneMorph(Operator):
         utils.selectSingleBone(context, armature, None, True)
         morph = mmd_root.bone_morphs[mmd_root.active_morph]
         for morph_data in morph.data:
-            p_bone = armature.pose.bones.get(morph_data.bone, None)
-            if p_bone:
+            if p_bone := armature.pose.bones.get(morph_data.bone, None):
                 p_bone.bone.select = True
                 mtx = matmul(p_bone.matrix_basis.to_3x3(), Quaternion(*morph_data.rotation.to_axis_angle()).to_matrix()).to_4x4()
                 mtx.translation = p_bone.location + morph_data.location
@@ -573,18 +573,21 @@ class ViewUVMorph(Operator):
                 return { 'CANCELLED' }
 
             uv_layer_name = base_uv_layers[morph.uv_index].name
-            if morph.uv_index == 0 or uv_textures.active.name not in {uv_layer_name, '_'+uv_layer_name}:
+            if morph.uv_index == 0 or uv_textures.active.name not in {
+                uv_layer_name,
+                f'_{uv_layer_name}',
+            }:
                 uv_textures.active = uv_textures[uv_layer_name]
 
             uv_layer_name = uv_textures.active.name
-            uv_tex = uv_textures.new(name='__uv.%s'%uv_layer_name)
+            uv_tex = uv_textures.new(name=f'__uv.{uv_layer_name}')
             if uv_tex is None:
                 self.report({ 'ERROR' }, "Failed to create a temporary uv layer")
                 return { 'CANCELLED' }
 
             offsets = FnMorph.get_uv_morph_offset_map(meshObj, morph).items()
             offsets = {k:getattr(Vector(v), 'zw' if uv_layer_name.startswith('_') else 'xy') for k, v in offsets}
-            if len(offsets) > 0:
+            if offsets:
                 base_uv_data = mesh.uv_layers.active.data
                 temp_uv_data = mesh.uv_layers[uv_tex.name].data
                 for i, l in enumerate(mesh.loops):
@@ -619,8 +622,7 @@ class ClearUVMorphView(Operator):
                 uv_textures[0].active_render = True
                 uv_textures.active_index = 0
 
-            animation_data = mesh.animation_data
-            if animation_data:
+            if animation_data := mesh.animation_data:
                 nla_tracks = animation_data.nla_tracks
                 for t in nla_tracks:
                     if t.name.startswith('__uv.'):
@@ -703,7 +705,7 @@ class ApplyUVMorph(Operator):
 
             base_uv_name = mesh.uv_layers.active.name[5:]
             if base_uv_name not in mesh.uv_layers:
-                self.report({'ERROR'}, ' * UV map "%s" not found'%base_uv_name)
+                self.report({'ERROR'}, f' * UV map "{base_uv_name}" not found')
                 return {'CANCELLED'}
 
             base_uv_data = mesh.uv_layers[base_uv_name].data

@@ -45,10 +45,7 @@ for mod in addon_utils.modules():
     if mod.bl_info['name'] == 'Cats Blender Plugin':
         package_name = mod.__name__
 
-# Icons for UI
-ICON_URL = 'URL'
-if bpy.app.version < (2, 79, 9):
-    ICON_URL = 'LOAD_FACTORY'
+ICON_URL = 'LOAD_FACTORY' if bpy.app.version < (2, 79, 9) else 'URL'
 
 
 class CheckForUpdateButton(bpy.types.Operator):
@@ -95,9 +92,7 @@ class UpdateToSelectedButton(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        if is_checking_for_update or not version_list:
-            return False
-        return True
+        return bool(not is_checking_for_update and version_list)
 
     def execute(self, context):
         global confirm_update_to, used_updater_panel
@@ -156,9 +151,7 @@ class ShowPatchnotesPanel(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        if is_checking_for_update or not version_list:
-            return False
-        return True
+        return bool(not is_checking_for_update and version_list)
 
     def execute(self, context):
         return {'FINISHED'}
@@ -205,7 +198,7 @@ class ConfirmUpdatePanel(bpy.types.Operator):
     show_patchnotes = False
 
     def execute(self, context):
-        print('UPDATE TO ' + confirm_update_to)
+        print(f'UPDATE TO {confirm_update_to}')
         if confirm_update_to == 'dev':
             update_now(dev=True)
         elif confirm_update_to == 'latest':
@@ -234,7 +227,7 @@ class ConfirmUpdatePanel(bpy.types.Operator):
 
         col.separator()
         row = col.row(align=True)
-        row.label(text='Version: ' + version_str)
+        row.label(text=f'Version: {version_str}')
 
         if confirm_update_to == 'dev':
             col.separator()
@@ -409,18 +402,15 @@ def get_github_releases(repo):
 
         version = 'v-99-99-99'
         version_tag = version.replace('-', '.')
-        if version_tag.startswith('v.'):
-            version_tag = version_tag[2:]
-        if version_tag.startswith('v'):
-            version_tag = version_tag[1:]
-
+        version_tag = version_tag.removeprefix('v.')
+        version_tag = version_tag.removeprefix('v')
         version_list[version_tag] = ['', 'Put exiting new stuff here', 'Today']
         version_list['12.34.56.78'] = ['', 'Nothing new to see', 'A week ago probably']
         return True
 
     try:
         ssl._create_default_https_context = ssl._create_unverified_context
-        with urllib.request.urlopen('https://api.github.com/repos/' + repo + '/cats-blender-plugin/releases') as url:
+        with urllib.request.urlopen(f'https://api.github.com/repos/{repo}/cats-blender-plugin/releases') as url:
             data = json.loads(url.read().decode())
     except urllib.error.URLError:
         print('URL ERROR')
@@ -454,9 +444,7 @@ def check_for_update_available():
     latest_version = []
     for version in version_list.keys():
         latest_version_str = version
-        for i in version.split('.'):
-            if i.isdigit():
-                latest_version.append(int(i))
+        latest_version.extend(int(i) for i in version.split('.') if i.isdigit())
         if latest_version:
             break
 
@@ -528,11 +516,11 @@ def update_now(version=None, latest=False, dev=False):
         print('UPDATE TO DEVELOPMENT')
         update_link = 'https://github.com/michaeldegroot/cats-blender-plugin/archive/development.zip'
     elif latest or not version:
-        print('UPDATE TO ' + latest_version_str)
+        print(f'UPDATE TO {latest_version_str}')
         update_link = version_list.get(latest_version_str)[0]
         bpy.context.scene.cats_updater_version_list = latest_version_str
     else:
-        print('UPDATE TO ' + version)
+        print(f'UPDATE TO {version}')
         update_link = version_list[version][0]
 
     download_file(update_link)
@@ -583,7 +571,7 @@ def download_file(update_url):
     print('SEARCHING FOR INIT 1')
 
     def searchInit(path):
-        print('SEARCHING IN ' + path)
+        print(f'SEARCHING IN {path}')
         files = os.listdir(path)
         if "__init__.py" in files:
             print('FOUND')
@@ -662,9 +650,9 @@ def clean_addon_dir():
         file = os.path.join(main_dir, f)
         try:
             os.remove(file)
-            print("Clean removing file {}".format(file))
+            print(f"Clean removing file {file}")
         except OSError:
-            print("Failed to pre-remove file " + file)
+            print(f"Failed to pre-remove file {file}")
 
     for f in folders:
         folder = os.path.join(main_dir, f)
@@ -673,9 +661,9 @@ def clean_addon_dir():
 
         try:
             shutil.rmtree(folder)
-            print("Clean removing folder and contents {}".format(folder))
+            print(f"Clean removing folder and contents {folder}")
         except OSError:
-            print("Failed to pre-remove folder " + folder)
+            print(f"Failed to pre-remove folder {folder}")
 
     # then remove resource files and folders (except settings and google dict)
     resources_folder = os.path.join(main_dir, 'resources')
@@ -683,22 +671,22 @@ def clean_addon_dir():
     folders = [f for f in os.listdir(resources_folder) if os.path.isdir(os.path.join(resources_folder, f))]
 
     for f in files:
-        if f == 'settings.json' or f == 'dictionary_google.json':
+        if f in ['settings.json', 'dictionary_google.json']:
             continue
         file = os.path.join(resources_folder, f)
         try:
             os.remove(file)
-            print("Clean removing file {}".format(file))
+            print(f"Clean removing file {file}")
         except OSError:
-            print("Failed to pre-remove " + file)
+            print(f"Failed to pre-remove {file}")
 
     for f in folders:
         folder = os.path.join(resources_folder, f)
         try:
             shutil.rmtree(folder)
-            print("Clean removing folder and contents {}".format(folder))
+            print(f"Clean removing folder and contents {folder}")
         except OSError:
-            print("Failed to pre-remove folder " + folder)
+            print(f"Failed to pre-remove folder {folder}")
 
 
 def set_ignored_version():
@@ -712,7 +700,7 @@ def set_ignored_version():
     # Set ignored status
     global is_ignored_version
     is_ignored_version = True
-    print('IGNORE VERSION ' + latest_version_str)
+    print(f'IGNORE VERSION {latest_version_str}')
 
 
 def check_ignored_version():
@@ -741,9 +729,7 @@ def check_ignored_version():
 def get_version_list(self, context):
     choices = []
     if version_list:
-        for version in version_list.keys():
-            choices.append((version, version, version))
-
+        choices.extend((version, version, version) for version in version_list.keys())
     bpy.types.Object.Enum = choices
     return bpy.types.Object.Enum
 
@@ -869,7 +855,7 @@ def draw_updater_panel(context, layout, user_preferences=False):
     split = col.row(align=True)
     row = layout_split(split, factor=0.55, align=True)
     row.scale_y = scale_small
-    row.active = True if not is_checking_for_update and version_list else False
+    row.active = bool(not is_checking_for_update and version_list)
     row.operator(UpdateToSelectedButton.bl_idname, text=t('draw_updater_panel.UpdateToSelectedButton.label'))
     row.prop(context.scene, 'cats_updater_version_list', text='')
     row = split.row(align=True)
@@ -936,11 +922,7 @@ def register(bl_info, dev_branch, version_str):
         fake_update = False
     current_version_str = version_str
 
-    # Get current version
-    current_version = []
-    for i in bl_info['version']:
-        current_version.append(i)
-
+    current_version = list(bl_info['version'])
     bpy.types.Scene.cats_updater_version_list = bpy.props.EnumProperty(
         name=t('bpy.types.Scene.cats_updater_version_list.label'),
         description=t('bpy.types.Scene.cats_updater_version_list.desc'),

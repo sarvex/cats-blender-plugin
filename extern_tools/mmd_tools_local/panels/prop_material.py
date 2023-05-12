@@ -7,9 +7,7 @@ from mmd_tools_local import register_wrap
 from mmd_tools_local.core.material import FnMaterial
 
 
-ICON_FILE_FOLDER = 'FILE_FOLDER'
-if bpy.app.version < (2, 80, 0):
-    ICON_FILE_FOLDER = 'FILESEL'
+ICON_FILE_FOLDER = 'FILESEL' if bpy.app.version < (2, 80, 0) else 'FILE_FOLDER'
 
 
 @register_wrap
@@ -96,8 +94,7 @@ class MMDTexturePanel(Panel):
         col = layout.column()
         col.label(text='Texture:')
         r = col.row(align=True)
-        tex = fnMat.get_texture()
-        if tex:
+        if tex := fnMat.get_texture():
             if tex.type == 'IMAGE' and tex.image:
                 r.prop(tex.image, 'filepath', text='')
                 r.operator('mmd_tools.material_remove_texture', text='', icon='PANEL_CLOSE')
@@ -110,8 +107,7 @@ class MMDTexturePanel(Panel):
         col = layout.column()
         col.label(text='Sphere Texture:')
         r = col.row(align=True)
-        tex = fnMat.get_sphere_texture()
-        if tex:
+        if tex := fnMat.get_sphere_texture():
             if tex.type == 'IMAGE' and tex.image:
                 r.prop(tex.image, 'filepath', text='')
                 r.operator('mmd_tools.material_remove_sphere_texture', text='', icon='PANEL_CLOSE')
